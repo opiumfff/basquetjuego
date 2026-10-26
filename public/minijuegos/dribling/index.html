@@ -158,6 +158,28 @@
     r: '#e63946', rd: '#8a1c2b', g: '#7be0a4', y: '#ffd23f', s: '#f2b38c',
     b: '#2b3a9e', wood: '#b9783a', wood2: '#c4833f', hud: '#6b4423', pole: '#6b6b80'
   };
+
+  function hexOk(valor) {
+    return /^#[0-9a-fA-F]{6}$/.test(valor || "");
+  }
+  function lumaHex(hex) {
+    const c = hex.slice(1);
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+  function coloresCamiseta() {
+    const q = new URLSearchParams(location.search);
+    const primario = q.get("primario") || "";
+    const secundario = q.get("secundario") || "";
+    if (!hexOk(primario)) return { fondo: C.w, trim: "", numero: C.b };
+    const trim = hexOk(secundario) ? secundario : C.w;
+    const lejos = Math.abs(lumaHex(trim) - lumaHex(primario)) >= 70;
+    const numero = lejos ? trim : (lumaHex(primario) > 150 ? "#141414" : "#f4f0dc");
+    return { fondo: primario, trim: trim, numero: numero };
+  }
+  const CAMISETA = coloresCamiseta();
   const FONT = '8px "Press Start 2P", "Courier New", monospace';
   if (document.fonts && document.fonts.load) document.fonts.load(FONT);
 
@@ -276,7 +298,12 @@
     sr(cx, fy, s, -5, 2 + l1, 4, 2, C.k);   sr(cx, fy, s, 1, 2 + l2, 4, 2, C.k);      // zapatillas
     sr(cx, fy, s, -5, 24, 10, 9, o.shorts);                                         // short
     sr(cx, fy, s, -5 + l, 40, 10, 17, o.jersey);                                    // camiseta
-    if (!o.face) sr(cx, fy, s, -2 + l, 37, 4, 6, C.b);                              // número en la espalda
+    if (o.trim) {
+      sr(cx, fy, s, -5 + l, 40, 2, 17, o.trim);
+      sr(cx, fy, s, 3 + l, 40, 2, 17, o.trim);
+      sr(cx, fy, s, -3 + l, 40, 6, 2, o.trim);
+    }
+    if (!o.face) sr(cx, fy, s, -2 + l, 37, 4, 6, o.numero || C.b);                  // número en la espalda
     sr(cx, fy, s, -4 + l, 50, 8, 9, C.s);                                           // cabeza
     sr(cx, fy, s, -4 + l, 50, 8, o.face ? 3 : 6, o.hair);                           // pelo
     if (o.face) { sr(cx, fy, s, -2 + l, 46, 1, 2, C.k); sr(cx, fy, s, 1 + l, 46, 1, 2, C.k); }
@@ -353,8 +380,11 @@
     rect(px - sw / 2, PY + 1, sw, 2, C.hud);
     if (invuln > 0 && Math.floor(clock * 16) % 2 === 0) return;
     const lean = Math.round((laneT - laneF) * 4);
-    person(px, PY - jh, 1, { jersey: C.w, shorts: C.b, hair: '#5a3a1a', face: false, block: false,
-      frame: jh > 0 ? 0 : Math.floor(clock * 10) % 2, lean });
+    person(px, PY - jh, 1, {
+      jersey: CAMISETA.fondo, trim: CAMISETA.trim, numero: CAMISETA.numero,
+      shorts: C.b, hair: '#5a3a1a', face: false, block: false,
+      frame: jh > 0 ? 0 : Math.floor(clock * 10) % 2, lean
+    });
     const by = 5 + 21 * Math.abs(Math.sin(clock * 9));
     ballS(px + 11 + lean, Math.round(PY - jh - by), 1, 4);
   }

@@ -65,6 +65,9 @@ function asegurarCarrera() {
     c.paso = c.paso || "portada";
     c.lnbRivales = c.lnbRivales || [];
     c.lnbGanados = Number(c.lnbGanados) || 0;
+    c.nbaRivales = c.nbaRivales || [];
+    c.nbaGanados = Number(c.nbaGanados) || 0;
+    if (!c.subidasXp || typeof c.subidasXp !== "object") c.subidasXp = {};
     if (c.paso === "debut" && typeof equipoActual === "function") {
         const club = equipoActual();
         if (club && club.liga === "LNB") {
@@ -81,6 +84,24 @@ function asegurarCarrera() {
         state.stats = Object.assign({}, BASES[state.posicion]);
     }
     return c;
+}
+
+function subidasXp() {
+    const c = asegurarCarrera();
+    if (!c.subidasXp || typeof c.subidasXp !== "object") c.subidasXp = {};
+    return c.subidasXp;
+}
+
+function subidaXp(clave) {
+    return Number(subidasXp()[clave]) || 0;
+}
+
+function topeXpActivo() {
+    return (Number(state.edad) || 19) >= 31;
+}
+
+function xpSegunEdad(pleno, reducido) {
+    return topeXpActivo() ? reducido : pleno;
 }
 
 function campoStat(clave) {
@@ -100,6 +121,7 @@ function valorStat(clave) {
 
 function grlCarrera() {
     if (!state.stats) return 46;
+    if (typeof mediaGeneral === "function") return mediaGeneral();
     const s = state.stats;
     return Math.round(((Number(s.velocidad) || 0) + (Number(s.tiro) || 0) + (Number(s.fuerza) || 0) + (Number(s.control) || 0) + (Number(s.defensa) || 0)) / 5);
 }
@@ -120,6 +142,7 @@ function clubesSorteo() {
 }
 
 const COSTO_XP = 5;
+const TOPE_SUBIDA_XP = 4;
 
 function probCarrera(clave) {
     const forma = Number(state.carrera.forma) || 70;
@@ -168,12 +191,12 @@ function elegirEvento(pool, prefijo) {
 function debuts() {
     return [
         { t: "LLEGADA AL CLUB", d: "Primer día. El vestuario te mide de arriba abajo.", op: [
-            { t: "Romperla en la práctica", fx: () => { state.carrera.xp += 8; state.carrera.forma = clamp(state.carrera.forma - 5, 0, 100); return { det: "+8 XP. El DT anotó tu nombre.", out: "bien" }; } },
-            { t: "Perfil bajo", fx: () => { sumarHinchada(6); state.carrera.xp += 4; return { det: "+6 hinchada, +4 XP.", out: "neutro" }; } }
+            { t: "Romperla en la práctica", fx: () => { const xp = xpSegunEdad(8, 4); state.carrera.xp += xp; state.carrera.forma = clamp(state.carrera.forma - 5, 0, 100); return { det: "+" + xp + " XP. El DT anotó tu nombre.", out: "bien" }; } },
+            { t: "Perfil bajo", fx: () => { const xp = xpSegunEdad(4, 2); sumarHinchada(6); state.carrera.xp += xp; return { det: "+6 hinchada, +" + xp + " XP.", out: "neutro" }; } }
         ] },
         { t: "DEBUT", d: "Primer partido oficial. La cancha del barrio está llena.", op: [
-            { t: "Jugar para la hinchada", fx: () => { sumarHinchada(12); state.puntosCarrera += 20; state.carrera.xp += 8; return { det: "+20 pts, +8 XP. Corearon tu nombre.", out: "bien" }; } },
-            { t: "Cuidarte", fx: () => { state.puntosCarrera += 10; state.carrera.xp += 6; return { det: "+10 pts, +6 XP. Partido correcto.", out: "neutro" }; } }
+            { t: "Jugar para la hinchada", fx: () => { const xp = xpSegunEdad(8, 4); sumarHinchada(12); state.puntosCarrera += 20; state.carrera.xp += xp; return { det: "+20 pts, +" + xp + " XP. Corearon tu nombre.", out: "bien" }; } },
+            { t: "Cuidarte", fx: () => { const xp = xpSegunEdad(6, 3); state.puntosCarrera += 10; state.carrera.xp += xp; return { det: "+10 pts, +" + xp + " XP. Partido correcto.", out: "neutro" }; } }
         ] },
         { t: "CLÁSICO LOCAL", d: "Se juega con los dientes apretados. Varias posesiones, y en cada una decidís vos.", partido: true },
         { t: "SEMANA LARGA", d: "Tres partidos en siete días. El cuerpo avisa.", op: [
@@ -191,7 +214,7 @@ function personales() {
             { t: "Descansar", fx: () => { state.carrera.forma = clamp(state.carrera.forma + 14, 0, 100); sumarHinchada(3); return { det: "Forma arriba. La gente banca.", out: "neutro" }; } }
         ] },
         { t: "NOCHE DE CLÁSICO", d: "El Elegido dijo que tu equipo no existe.", op: [
-            { t: "Estudiar video", fx: () => { state.carrera.xp += 8; state.carrera.forma = clamp(state.carrera.forma - 5, 0, 100); return { det: "+8 XP. Le encontraste la maña.", out: "neutro" }; } },
+            { t: "Estudiar video", fx: () => { const xp = xpSegunEdad(8, 4); state.carrera.xp += xp; state.carrera.forma = clamp(state.carrera.forma - 5, 0, 100); return { det: "+" + xp + " XP. Le encontraste la maña.", out: "neutro" }; } },
             { t: "Dormir", fx: () => { state.carrera.forma = clamp(state.carrera.forma + 10, 0, 100); return { det: "Fresco para el salto inicial.", out: "neutro" }; } }
         ] },
         { t: "PEDIDO DEL DT", d: "Quiere que labures el físico esta semana.", op: [
@@ -200,14 +223,14 @@ function personales() {
         ] },
         { t: "MICRÓFONO", d: "Te entrevistan a la salida. Todo el país mira.", op: [
             { t: "Hablar como ídolo", fx: () => { sumarHinchada(10); state.rival.puntos += 4; return { det: "+10 hinchada. El Elegido tomó nota.", out: "bien" }; } },
-            { t: "Perfil bajo", fx: () => { state.carrera.forma = clamp(state.carrera.forma + 6, 0, 100); state.carrera.xp += 4; return { det: "+4 XP. Sin titulares.", out: "neutro" }; } }
+            { t: "Perfil bajo", fx: () => { const xp = xpSegunEdad(4, 2); state.carrera.forma = clamp(state.carrera.forma + 6, 0, 100); state.carrera.xp += xp; return { det: "+" + xp + " XP. Sin titulares.", out: "neutro" }; } }
         ] },
         { t: "LA RODILLA", d: "Molestia. El médico no se decide.", op: [
-            { t: "Jugar igual", fx: () => { state.carrera.forma = clamp(state.carrera.forma - 12, 0, 100); state.carrera.xp += 8; sumarHinchada(5); return { det: "+8 XP. El dolor pasa, la historia queda.", out: "bien" }; } },
+            { t: "Jugar igual", fx: () => { const xp = xpSegunEdad(8, 4); state.carrera.forma = clamp(state.carrera.forma - 12, 0, 100); state.carrera.xp += xp; sumarHinchada(5); return { det: "+" + xp + " XP. El dolor pasa, la historia queda.", out: "bien" }; } },
             { t: "Parar una semana", fx: () => { state.carrera.forma = clamp(state.carrera.forma + 18, 0, 100); sumarHinchada(-4); return { det: "Te recuperás. Algunos dudan.", out: "mal" }; } }
         ] },
         { t: "PIBES EN LA PUERTA", d: "Te esperan para una foto a la salida.", op: [
-            { t: "Quedarte con todos", fx: () => { sumarHinchada(10); state.carrera.xp += 2; return { det: "+10 hinchada. Ídolo del barrio.", out: "bien" }; } },
+            { t: "Quedarte con todos", fx: () => { const xp = xpSegunEdad(2, 1); sumarHinchada(10); state.carrera.xp += xp; return { det: "+10 hinchada, +" + xp + " XP. Ídolo del barrio.", out: "bien" }; } },
             { t: "Irte rápido", fx: () => { sumarHinchada(-6); state.carrera.forma = clamp(state.carrera.forma + 6, 0, 100); return { det: "Descansaste. La prensa no perdona.", out: "mal" }; } }
         ] }
     ];
@@ -344,14 +367,64 @@ function nombreRonda(momento) {
     return ["", "PRIMERA RONDA", "SEMIFINALES", "FINAL DE CONFERENCIA", "FINALES DEL MUNDO"][Number(momento)] || "";
 }
 
+function ladosAllStar() {
+    const eq = typeof equipoActual === "function" ? equipoActual() : null;
+    const conf = String((eq && eq.conferencia) || state.conferencia || "Este");
+    const oeste = conf.toLowerCase().indexOf("oeste") !== -1;
+    const mia = oeste ? "OESTE" : "ESTE";
+    const otra = oeste ? "ESTE" : "OESTE";
+    return {
+        local: "ALL STAR " + mia,
+        visita: "ALL STAR " + otra,
+        siglaLocal: oeste ? "OES" : "EST",
+        siglaVisita: oeste ? "EST" : "OES"
+    };
+}
+
+function vaAlAllStar() {
+    const eq = typeof equipoActual === "function" ? equipoActual() : null;
+    if (!eq || eq.liga !== "NBA") return false;
+    if (typeof esEstrellaDeLaLiga !== "function" || !esEstrellaDeLaLiga()) return false;
+    const c = state.carrera || {};
+    return Number(c.allStarTemporada) !== (Number(state.temporada) || 1);
+}
+
+function convocarAllStar(despues) {
+    const c = asegurarCarrera();
+    const temp = Number(state.temporada) || 1;
+    c.trasAllStar = despues;
+    c.paso = "allstar";
+    c.momento = 0;
+    c.evento = null;
+    c.partido = null;
+    if (Number(c.allStarTemporada) !== temp) {
+        c.allStarTemporada = temp;
+        if (typeof sumarTrofeo === "function") sumarTrofeo("ALL STAR");
+    }
+}
+
+function selloAllStar(sigla) {
+    return `<div class="logo-circulo"><b class="monograma">${esc(sigla)}</b></div>`;
+}
+
 const PARTIDOS_LNB = 5;
 const VICTORIAS_PLAYOFF_LNB = 3;
+const PARTIDOS_NBA = 6;
+const VICTORIAS_DIRECTO_NBA = 4;
+const VICTORIAS_PLAYIN_NBA = 3;
+const PARTIDOS_PLAYIN_NBA = 2;
 const GRAL_NBA_DESDE = 55;
 const CHANCE_NBA_ANTES = 8;
 const CHANCE_NBA_EN_55 = 20;
 const CHANCE_NBA_POR_PUNTO = 3;
 const CHANCE_NBA_TECHO = 98;
 const XP_MINIJUEGO = 5;
+const XP_POSESION_GANADA = 1;
+const XP_POSESION_PERDIDA = 0;
+const XP_PARTIDO_GANADO = 5;
+const XP_PARTIDO_PERDIDO = 1;
+const XP_FINAL_GANADA = 25;
+const XP_FICHAJE = 10;
 
 function enLigaNacional() {
     const eq = typeof equipoActual === "function" ? equipoActual() : null;
@@ -361,6 +434,11 @@ function enLigaNacional() {
 function faseLnb() {
     const paso = state.carrera && state.carrera.paso;
     return paso === "lnb" || paso === "lnbplayoff";
+}
+
+function faseNbaPrevia() {
+    const paso = state.carrera && state.carrera.paso;
+    return paso === "nba" || paso === "nbaplayin";
 }
 
 function nombreRondaLnb(momento) {
@@ -373,6 +451,17 @@ function prepararTemporadaLnb() {
     c.momento = 0;
     c.lnbGanados = 0;
     c.lnbRivales = [];
+    c.evento = null;
+    c.partido = null;
+}
+
+function prepararTemporadaNba() {
+    const c = asegurarCarrera();
+    c.paso = "nba";
+    c.momento = 0;
+    c.nbaGanados = 0;
+    c.nbaRivales = [];
+    c.tablaNba = null;
     c.evento = null;
     c.partido = null;
 }
@@ -520,6 +609,218 @@ function resolverPendLnb(p, gano) {
     return { pend: "lnbplayoff", extra: " Ganaste " + ronda + ". Lo que sigue es " + siguiente + ", contra otro equipo." };
 }
 
+function resolverPendNba(p, gano) {
+    const c = asegurarCarrera();
+    if (p.paso === "nba") {
+        if (gano) c.nbaGanados = (Number(c.nbaGanados) || 0) + 1;
+        const jugados = Number(p.momento) + 1;
+        const ganados = Number(c.nbaGanados) || 0;
+        const marca = ganados + "-" + (jugados - ganados);
+        if (jugados < PARTIDOS_NBA) {
+            return { pend: "nba", extra: " Vas " + marca + " en " + PARTIDOS_NBA + ". Con " + VICTORIAS_DIRECTO_NBA + " victorias entrás a playoffs. Con " + VICTORIAS_PLAYIN_NBA + ", al play-in. El rival no se repite." };
+        }
+        const tabla = armarTablaConferencia(ganados);
+        c.tablaNba = tabla;
+        const lugar = textoPuestoTabla(tabla);
+        const resumen = typeof textoPromedios === "function" ? " " + textoPromedios() : "";
+        if (ganados >= VICTORIAS_DIRECTO_NBA) {
+            const premios = ganados >= 5 && typeof sortearPremiosTemporada === "function" ? sortearPremiosTemporada(ganados) : "";
+            return { pend: "nbaplayoff", extra: " Cerraste " + marca + ". " + lugar + resumen + " Clasificás directo a los playoffs." + premios };
+        }
+        if (ganados === VICTORIAS_PLAYIN_NBA) {
+            return { pend: "nbaplayin", extra: " Cerraste " + marca + ". " + lugar + resumen + " Jugás el play-in: dos partidos contra dos equipos distintos. Si los ganás, entrás a playoffs." };
+        }
+        return { pend: "fuera", extra: " Cerraste " + marca + ". " + lugar + resumen + " Con 2 victorias o menos no hay playoffs." };
+    }
+    if (!gano) return { pend: "fuera", extra: " Perdiste el play-in. No entrás a los playoffs." };
+    if (Number(p.momento) + 1 >= PARTIDOS_PLAYIN_NBA) {
+        return { pend: "nbaplayoff", extra: " Ganaste los dos partidos del play-in. Entrás a los playoffs." };
+    }
+    return { pend: "nbaplayin", extra: " Ganaste el primer partido del play-in. Falta uno más, contra otro equipo." };
+}
+
+const JUEGOS_TEMPORADA_NBA = 82;
+const PRIORIDAD_TABLA = {
+    Este: { BOS: true, NYK: true, CLE: true, PHI: true },
+    Oeste: { SAS: true, LAL: true, MIN: true, OKC: true }
+};
+const CHANCE_PRIORIDAD_JUNTA = 0.8;
+
+function pesoTabla(eq) {
+    const conf = PRIORIDAD_TABLA[eq && eq.conferencia] || {};
+    const codigo = String(eq && eq.abreviatura || "").toUpperCase();
+    return conf[codigo] ? 6 : 1;
+}
+
+function elegirCupoTabla(lista, n) {
+    const prioridad = lista.filter((eq) => pesoTabla(eq) > 1);
+    const comunes = lista.filter((eq) => pesoTabla(eq) <= 1);
+    if (!prioridad.length || prioridad.length > n) return tomarAlgunos(lista, n);
+    let fijos = prioridad.slice();
+    let bolsa = comunes.slice();
+    if (Math.random() >= CHANCE_PRIORIDAD_JUNTA) {
+        // El que sale no vuelve al bolillero. Si volviera, los prioritarios entrarían juntos más del 80%.
+        const afuera = prioridad[Math.floor(Math.random() * prioridad.length)];
+        fijos = prioridad.filter((eq) => Number(eq.id) !== Number(afuera.id));
+    }
+    const elegidos = fijos.concat(tomarAlgunos(bolsa, Math.max(0, n - fijos.length)));
+    return tomarAlgunos(elegidos, elegidos.length);
+}
+
+function tablaNbaVigente(c) {
+    const tabla = c && c.tablaNba;
+    if (!tabla || !tabla.filas || !tabla.filas.length) return null;
+    if (Number(tabla.temporada) !== (Number(state.temporada) || 1)) return null;
+    return tabla;
+}
+
+function equiposDeTabla(c, mio, usados) {
+    const tabla = tablaNbaVigente(c);
+    if (!tabla || typeof clubPorId !== "function") return [];
+    const bloque = {};
+    (usados || []).forEach((id) => { bloque[Number(id)] = true; });
+    if (mio) bloque[Number(mio.id)] = true;
+    return tabla.filas
+        .map((fila) => clubPorId(fila.id))
+        .filter((eq) => eq && !bloque[Number(eq.id)]);
+}
+const FRANJAS_CONFERENCIA = [
+    { puestos: [1], min: 61, max: 72 },
+    { puestos: [2, 3, 4], min: 51, max: 60 },
+    { puestos: [5, 6, 7], min: 42, max: 50 },
+    { puestos: [8, 9, 10], min: 36, max: 41 }
+];
+
+function bandaMuestraNba(ganados) {
+    const n = Number(ganados) || 0;
+    if (n <= 0) return { min: 1, max: 10, fuera: [13, 14, 15] };
+    if (n === 1) return { min: 11, max: 20, fuera: [12, 13, 14] };
+    if (n === 2) return { min: 21, max: 35, fuera: [11, 12, 13] };
+    if (n === 3) return { puestos: [8, 9, 10], min: 36, max: 41 };
+    if (n === 4) return { puestos: [5, 6, 7], min: 42, max: 50 };
+    if (n === 5) return { puestos: [2, 3, 4], min: 51, max: 60 };
+    return { puestos: [1], min: 61, max: 72 };
+}
+
+function rangoEntero(min, max) {
+    const lista = [];
+    for (let n = min; n <= max; n++) lista.push(n);
+    return lista;
+}
+
+function tomarAlgunos(pool, n) {
+    const copia = pool.slice();
+    const out = [];
+    while (out.length < n && copia.length) {
+        const i = Math.floor(Math.random() * copia.length);
+        out.push(copia.splice(i, 1)[0]);
+    }
+    return out;
+}
+
+function victoriasPosibles(puesto, puestos, min, max) {
+    const mejores = puestos.filter((p) => p < puesto).length;
+    const peores = puestos.filter((p) => p > puesto).length;
+    return { min: min + peores, max: max - mejores };
+}
+
+function llenarFranja(franja, fijo) {
+    const mapa = {};
+    const puestos = franja.puestos;
+    if (fijo && puestos.indexOf(fijo.puesto) !== -1) {
+        mapa[fijo.puesto] = fijo.victorias;
+        const mejores = puestos.filter((p) => p < fijo.puesto);
+        const peores = puestos.filter((p) => p > fijo.puesto);
+        const arriba = tomarAlgunos(rangoEntero(fijo.victorias + 1, franja.max), mejores.length).sort((a, b) => b - a);
+        const abajo = tomarAlgunos(rangoEntero(franja.min, fijo.victorias - 1), peores.length).sort((a, b) => b - a);
+        mejores.forEach((p, i) => { mapa[p] = arriba[i]; });
+        peores.forEach((p, i) => { mapa[p] = abajo[i]; });
+        return mapa;
+    }
+    const valores = tomarAlgunos(rangoEntero(franja.min, franja.max), puestos.length).sort((a, b) => b - a);
+    puestos.forEach((p, i) => { mapa[p] = valores[i]; });
+    return mapa;
+}
+
+function textoPuestoTabla(tabla) {
+    const rec = tabla.victorias + "-" + (JUEGOS_TEMPORADA_NBA - tabla.victorias);
+    if (!tabla.dentro) {
+        return "En el " + tabla.conferencia + " quedás " + tabla.puesto + "º, fuera de los 10, con " + rec + ".";
+    }
+    return "En el " + tabla.conferencia + " quedás " + tabla.puesto + "º, con " + rec + ".";
+}
+
+function armarTablaConferencia(ganadosMuestra) {
+    const mio = typeof equipoActual === "function" ? equipoActual() : null;
+    const conferencia = mio && mio.conferencia ? mio.conferencia : "Conferencia";
+    const banda = bandaMuestraNba(ganadosMuestra);
+    const dentro = !banda.fuera;
+    let puesto;
+    let victorias;
+    if (dentro) {
+        puesto = banda.puestos[Math.floor(Math.random() * banda.puestos.length)];
+        const rango = victoriasPosibles(puesto, banda.puestos, banda.min, banda.max);
+        victorias = rango.min + Math.floor(Math.random() * (rango.max - rango.min + 1));
+    } else {
+        puesto = banda.fuera[Math.floor(Math.random() * banda.fuera.length)];
+        victorias = banda.min + Math.floor(Math.random() * (banda.max - banda.min + 1));
+    }
+    const fijo = dentro ? { puesto: puesto, victorias: victorias } : null;
+    const marcas = {};
+    FRANJAS_CONFERENCIA.forEach((franja) => {
+        const parcial = llenarFranja(franja, fijo);
+        Object.keys(parcial).forEach((clave) => { marcas[Number(clave)] = parcial[clave]; });
+    });
+    const cupo = dentro ? 9 : 10;
+    const otros = elegirCupoTabla(clubesLiga("NBA").filter((eq) => {
+        return mio && String(eq.conferencia) === String(mio.conferencia) && Number(eq.id) !== Number(mio.id);
+    }), cupo);
+    let cursor = 0;
+    const filas = [];
+    for (let i = 1; i <= 10; i++) {
+        const propio = dentro && i === puesto;
+        const club = propio ? mio : otros[cursor++];
+        const w = marcas[i];
+        filas.push({
+            puesto: i,
+            id: club ? Number(club.id) : 0,
+            nombre: club ? club.nombre : "Equipo",
+            victorias: w,
+            derrotas: JUEGOS_TEMPORADA_NBA - w,
+            propio: !!propio
+        });
+    }
+    const propio = {
+        puesto: puesto,
+        id: mio ? Number(mio.id) : 0,
+        nombre: mio ? mio.nombre : "Tu equipo",
+        victorias: victorias,
+        derrotas: JUEGOS_TEMPORADA_NBA - victorias,
+        propio: true
+    };
+    return {
+        conferencia: conferencia,
+        temporada: Number(state.temporada) || 1,
+        dentro: dentro,
+        puesto: puesto,
+        victorias: victorias,
+        filas: filas,
+        propio: dentro ? null : propio
+    };
+}
+
+function htmlTablaNba(tabla) {
+    if (!tabla || !tabla.filas) return "";
+    const filas = tabla.filas.map((fila) => {
+        const clase = fila.propio ? "statline propio" : "statline";
+        return `<div class="${clase}"><span>${fila.puesto}. ${esc(fila.nombre)}</span><b class="num">${fila.victorias}-${fila.derrotas}</b></div>`;
+    }).join("");
+    const afuera = tabla.propio
+        ? `<p class="nota">Fuera de los 10</p><div class="statline propio"><span>${tabla.propio.puesto}. ${esc(tabla.propio.nombre)}</span><b class="num">${tabla.propio.victorias}-${tabla.propio.derrotas}</b></div>`
+        : "";
+    return `<div class="caja tabla-conf"><h2>${esc(String(tabla.conferencia).toUpperCase())} · 1 AL 10</h2>${filas}${afuera}</div>`;
+}
+
 function anotarRivalApertura(id) {
     if (!esAperturaPartido() || !id) return;
     const c = asegurarCarrera();
@@ -597,11 +898,31 @@ function rivalDelPartido() {
     const alguna = mapaRivales(mio.liga, () => true);
     const anterior = mapaRivales(mio.liga, (item) => Number(item.temporada) === temp - 1);
     let preferidos = liga;
+    let cerrado = false;
     if (faseLnb()) {
         const usados = (c.lnbRivales || []).map(Number);
         const frescos = liga.filter((eq) => usados.indexOf(Number(eq.id)) === -1 && !esta[Number(eq.id)]);
         preferidos = frescos.length ? frescos : liga.filter((eq) => !esta[Number(eq.id)]);
         if (!preferidos.length) preferidos = liga;
+    } else if (c.paso === "nba") {
+        const usados = (c.nbaRivales || []).map(Number);
+        const frescos = liga.filter((eq) => usados.indexOf(Number(eq.id)) === -1);
+        preferidos = frescos.length ? frescos : liga;
+    } else if (c.paso === "nbaplayin") {
+        const deTabla = equiposDeTabla(c, mio, c.nbaRivales);
+        const banda = (tablaNbaVigente(c) || { filas: [] }).filas.filter((fila) => {
+            return !fila.propio && fila.puesto >= 8 && fila.puesto <= 10 && (c.nbaRivales || []).map(Number).indexOf(Number(fila.id)) === -1;
+        }).map((fila) => clubPorId(fila.id)).filter(Boolean);
+        preferidos = banda.length ? banda : (deTabla.length ? deTabla : equiposDeTabla(c, mio, []));
+        cerrado = preferidos.length > 0;
+    } else if (rondaTemporada() && rondaTemporada() < 4) {
+        const deTabla = equiposDeTabla(c, mio, serieRivales());
+        if (deTabla.length) {
+            preferidos = deTabla;
+            cerrado = true;
+        } else {
+            preferidos = candidatosRonda(liga, mio, rondaTemporada(), serieRivales().map(Number));
+        }
     } else if (rondaTemporada()) {
         preferidos = candidatosRonda(liga, mio, rondaTemporada(), serieRivales().map(Number));
     } else {
@@ -615,20 +936,26 @@ function rivalDelPartido() {
     const libre = (eq) => !esta[Number(eq.id)];
     const nuevo = (eq) => !alguna[Number(eq.id)];
     const noAnterior = (eq) => !anterior[Number(eq.id)];
-    const rival = tomarRival([
-        preferidos.filter((eq) => libre(eq) && nuevo(eq)),
-        liga.filter((eq) => libre(eq) && nuevo(eq)),
-        preferidos.filter((eq) => libre(eq) && noAnterior(eq)),
-        liga.filter((eq) => libre(eq) && noAnterior(eq)),
-        preferidos.filter(libre),
-        liga.filter(libre),
-        preferidos.length ? preferidos : liga
-    ]);
+    const rival = cerrado
+        ? tomarRival([preferidos])
+        : tomarRival([
+            preferidos.filter((eq) => libre(eq) && nuevo(eq)),
+            liga.filter((eq) => libre(eq) && nuevo(eq)),
+            preferidos.filter((eq) => libre(eq) && noAnterior(eq)),
+            liga.filter((eq) => libre(eq) && noAnterior(eq)),
+            preferidos.filter(libre),
+            liga.filter(libre),
+            preferidos.length ? preferidos : liga
+        ]);
     if (!rival) return null;
     const id = Number(rival.id);
     if (faseLnb()) {
         c.lnbRivales = c.lnbRivales || [];
         if (c.lnbRivales.indexOf(id) === -1) c.lnbRivales.push(id);
+    }
+    if (faseNbaPrevia()) {
+        c.nbaRivales = c.nbaRivales || [];
+        if (c.nbaRivales.indexOf(id) === -1) c.nbaRivales.push(id);
     }
     anotarRivalSerie(id);
     anotarRivalApertura(id);
@@ -670,7 +997,7 @@ function asegurarPartido() {
         if ((c.partido.nuestros || 0) < PISO_MARCADOR) c.partido.nuestros = PISO_MARCADOR;
         if ((c.partido.ellos || 0) < PISO_MARCADOR) c.partido.ellos = PISO_MARCADOR;
         if (!c.partido.gastadas) c.partido.gastadas = [];
-        if (!c.partido.rivalId) {
+        if (!c.partido.rivalId && c.paso !== "allstar") {
             const rival = rivalDelPartido();
             c.partido.rivalId = rival ? Number(rival.id) : null;
         }
@@ -678,8 +1005,10 @@ function asegurarPartido() {
         anotarRivalSerie(c.partido.rivalId);
         return c.partido;
     }
-    const final = (c.paso === "temporada" && Number(c.momento) === 4) || (c.paso === "lnbplayoff" && Number(c.momento) === 3);
-    const rival = rivalDelPartido();
+    const allstar = c.paso === "allstar";
+    const lados = allstar ? ladosAllStar() : null;
+    const final = !allstar && ((c.paso === "temporada" && Number(c.momento) === 4) || (c.paso === "lnbplayoff" && Number(c.momento) === 3));
+    const rival = allstar ? null : rivalDelPartido();
     const total = c.paso === "debut" ? 3 : (final ? 5 : 4);
     const posesiones = [];
     for (let i = 0; i < total; i++) {
@@ -699,6 +1028,10 @@ function asegurarPartido() {
         eco: null,
         gastadas: [],
         rivalId: rival ? Number(rival.id) : null,
+        local: lados ? lados.local : "",
+        visita: lados ? lados.visita : "",
+        siglaLocal: lados ? lados.siglaLocal : "",
+        siglaVisita: lados ? lados.siglaVisita : "",
         grlInicio: grlCarrera(),
         paso: c.paso,
         momento: c.momento,
@@ -801,7 +1134,7 @@ function jugarMomento(clave, final, pend) {
     let tipo;
     if (gano) {
         const pts = Math.round((20 + Math.random() * 10) * mult);
-        const xp = Math.round((8 + Math.random() * 5) * mult);
+        const xp = final ? XP_FINAL_GANADA : XP_PARTIDO_GANADO;
         state.puntosCarrera += pts;
         state.carrera.xp += xp;
         state.victorias = (state.victorias || 0) + 1;
@@ -812,16 +1145,18 @@ function jugarMomento(clave, final, pend) {
             if (typeof sumarTrofeo === "function") {
                 sumarTrofeo(eq && eq.liga === "NBA" ? "CAMPEÓN NBA" : "ANILLO DE CAMPEÓN");
             }
-            detalle = "Entró. +" + pts + " pts, +" + xp + " XP. Título de liga.";
+            const mvp = eq && eq.liga === "NBA" && typeof sortearMvpFinales === "function" ? sortearMvpFinales() : "";
+            detalle = "Entró. +" + pts + " pts, +" + xp + " XP. Título de liga." + mvp;
         } else {
             detalle = "Entró. +" + pts + " pts, +" + xp + " XP.";
         }
         tipo = "bien";
     } else {
         state.puntosCarrera += 4;
-        state.carrera.xp += 3;
+        const xp = XP_PARTIDO_PERDIDO;
+        state.carrera.xp += xp;
         sumarHinchada(-4);
-        detalle = "No entró. El equipo te banca.";
+        detalle = "No entró. +" + xp + " XP. El equipo te banca.";
         tipo = "mal";
     }
     reflejarCalibre();
@@ -848,7 +1183,9 @@ function resolverPosesion(indice) {
     p.nuestros = (p.nuestros || 0) + ptsNos;
     p.ellos = (p.ellos || 0) + ptsEllos;
     state.puntosCarrera = (state.puntosCarrera || 0) + ptsNos;
-    c.xp += gano ? 2 : 1;
+    const xpJugada = gano ? XP_POSESION_GANADA : XP_POSESION_PERDIDA;
+    c.xp += xpJugada;
+    p.xpPosesiones = (Number(p.xpPosesiones) || 0) + xpJugada;
     if (gano) p.aciertos += 1;
     else p.fallos += 1;
     const texto = relatoJugada(op.stat, gano, pos.lado);
@@ -861,7 +1198,8 @@ function resolverPosesion(indice) {
         texto: texto,
         stat: marca,
         chance: chance,
-        puntos: ptsNos
+        puntos: ptsNos,
+        xp: xpJugada
     };
 }
 
@@ -910,6 +1248,7 @@ function cerrarPartido() {
     const delta = grlCarrera() - (Number(p.grlInicio) || grlCarrera());
     const extra = delta > 0 ? " (+" + delta + ")" : "";
     // La Liga Nacional suma 5 partidos y, con 3 victorias, elimina desde cuartos.
+    // En la NBA, 6 partidos definen playoffs, play-in o el año siguiente.
     // El playoff de la NBA sigue en el cuadro si ganás y te deja afuera si perdés.
     let pend = "avanzar";
     let extraLnb = "";
@@ -919,6 +1258,13 @@ function cerrarPartido() {
         pend = cierre.pend;
         extraLnb = cierre.extra;
         if (pend === "finlnb") extraLnb += textoOfertaNba(evaluarOfertaNba());
+    } else if (p.paso === "nba" || p.paso === "nbaplayin") {
+        const cierre = resolverPendNba(p, gano);
+        pend = cierre.pend;
+        extraLnb = cierre.extra;
+    } else if (p.paso === "allstar") {
+        pend = "postallstar";
+        extraLnb = " All Stars Game. " + (p.local || "ALL STAR ESTE") + " contra " + (p.visita || "ALL STAR OESTE") + ". La convocatoria sumó ALL STAR en la vitrina.";
     } else if (!gano && p.paso === "temporada") pend = "fuera";
     const eraFinal = !!p.final;
     const ot = Number(p.overtimes) || 0;
@@ -927,15 +1273,18 @@ function cerrarPartido() {
     state.partidas = (state.partidas || 0) + 1;
     c.forma = clamp(c.forma - (6 + Math.random() * 6), 0, 100);
     state.rival.puntos += Math.round(6 + Math.random() * 8);
+    const xpCierre = gano && eraFinal ? XP_FINAL_GANADA : (gano ? XP_PARTIDO_GANADO : XP_PARTIDO_PERDIDO);
+    const xpJugadas = Number(p.xpPosesiones) || 0;
+    c.xp += xpCierre;
+    const textoXp = " +" + xpJugadas + " XP de posesiones. +" + xpCierre + " XP " + (gano && eraFinal ? "de la final." : "del partido.");
     let titulo;
     let detalle;
     let tipo;
     if (gano) {
         // Victoria: suma XP y, si era la final, el título. La ronda siguiente queda para "avanzar".
         state.victorias = (state.victorias || 0) + 1;
-        const xp = eraFinal ? 10 : 6;
-        c.xp += xp;
         sumarHinchada(eraFinal ? 10 : 6);
+        let textoMvp = "";
         if (eraFinal) {
             state.titulos = (state.titulos || 0) + 1;
             const eq = equipoActual();
@@ -943,28 +1292,46 @@ function cerrarPartido() {
                 const copa = eq && eq.liga === "NBA" ? "CAMPEÓN NBA" : (eq && eq.liga === "LNB" ? "CAMPEÓN LNB" : "ANILLO DE CAMPEÓN");
                 sumarTrofeo(copa);
             }
+            if (eq && eq.liga === "NBA" && typeof sortearMvpFinales === "function") textoMvp = sortearMvpFinales();
         }
-        titulo = eraFinal ? "Campeones" : "Ganaron";
-        detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + ". +" + xp + " XP." + (eraFinal && !extraLnb ? " Título de liga." : "") + extraLnb;
+        titulo = eraFinal ? "Campeones" : (pend === "postallstar" ? "All Stars Game" : (pend === "nbaplayoff" ? "Clasificaste" : (pend === "nbaplayin" ? "Play-in" : "Ganaron")));
+        const avisoAll = (eraFinal || pend === "fuera") && vaAlAllStar() ? " Te convocan al All Stars Game." : "";
+        detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + "." + textoXp + (eraFinal && !extraLnb ? " Título de liga." : "") + textoMvp + extraLnb + avisoAll;
         tipo = "bien";
     } else {
         // Derrota de playoff NBA: afuera y la temporada que viene. En la Liga Nacional cierra el año igual.
-        c.xp += 3;
         sumarHinchada(-4);
         if (pend === "fuera") {
             titulo = "Afuera";
-            detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + ". Quedaste afuera de los playoffs. +3 XP. Sigue la temporada " + ((Number(state.temporada) || 1) + 1) + ".";
+            const sigue = vaAlAllStar()
+                ? " Te convocan al All Stars Game."
+                : " Sigue la temporada " + ((Number(state.temporada) || 1) + 1) + ".";
+            detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + "." + (extraLnb || " Quedaste afuera de los playoffs.") + textoXp + sigue;
+        } else if (pend === "nbaplayoff" || (pend === "nbaplayin" && p.paso === "nba")) {
+            titulo = pend === "nbaplayoff" ? "Clasificaste" : "Play-in";
+            detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + "." + textoXp + extraLnb;
         } else {
-            titulo = pend === "finlnb" ? (p.paso === "lnbplayoff" ? "Afuera" : "Fin del año") : "Derrota";
-            detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + ". +3 XP." + (extraLnb || " La cancha igual te hizo subir.");
+            titulo = pend === "postallstar" ? "All Stars Game" : (pend === "finlnb" ? (p.paso === "lnbplayoff" ? "Afuera" : "Fin del año") : "Derrota");
+            detalle = "Cerraron " + marcador + "." + textoOt + " Media " + grlCarrera() + extra + "." + textoXp + (extraLnb || " La cancha igual te hizo subir.");
         }
         tipo = "mal";
     }
     const cierre = {
-        marcador: { nuestros: p.nuestros || 0, ellos: p.ellos || 0, rivalId: p.rivalId || null },
+        marcador: {
+            nuestros: p.nuestros || 0,
+            ellos: p.ellos || 0,
+            rivalId: p.rivalId || null,
+            local: p.local || "",
+            visita: p.visita || "",
+            siglaLocal: p.siglaLocal || "",
+            siglaVisita: p.siglaVisita || ""
+        },
         jugadas: (p.lineas || []).slice(),
         fase: p.paso
     };
+    if (p.paso === "nba" && Number(p.momento) + 1 >= PARTIDOS_NBA && c.tablaNba) {
+        cierre.tabla = c.tablaNba;
+    }
     c.partido = null;
     reflejarCalibre();
     guardarPaso(pend, titulo, detalle, tipo, cierre);
@@ -1001,11 +1368,20 @@ function draftNBA() {
 }
 
 function siguienteTemporada() {
-    // Cierra el año: sube temporada y edad. Las estadísticas no se mueven solas.
+    // Cierra el año. Hasta los 40 se puede seguir. El XP baja desde los 31 y el cuerpo desde los 33.
     const c = state.carrera;
+    const edad = Number(state.edad) || 19;
+    if (edad >= 40) {
+        state.flash = "Cerraste el año con 40. El cuerpo no da para otra temporada.";
+        c.momento = 0;
+        c.evento = null;
+        c.partido = null;
+        c.paso = "leyenda";
+        return;
+    }
     state.temporada = (Number(state.temporada) || 1) + 1;
-    state.edad = (Number(state.edad) || 19) + 1;
-    if (typeof madurar === "function") state.flash = "Temporada " + state.temporada + ". " + madurar();
+    state.edad = edad + 1;
+    state.flash = "Temporada " + state.temporada + ". " + (typeof madurar === "function" ? madurar() : "Cumpliste un año.");
     c.momento = 0;
     c.usados = [];
     c.evento = null;
@@ -1015,8 +1391,12 @@ function siguienteTemporada() {
     limpiarEntreno();
     c.lnbGanados = 0;
     c.lnbRivales = [];
+    c.nbaGanados = 0;
+    c.nbaRivales = [];
+    c.tablaNba = null;
+    c.subidasXp = {};
     c.sorteoNba = null;
-    c.paso = (state.temporada > 15 || state.edad >= 38) ? "leyenda" : (enLigaNacional() ? "lnb" : "temporada");
+    c.paso = enLigaNacional() ? "lnb" : "temporada";
 }
 
 function pendTrasOferta() {
@@ -1040,14 +1420,33 @@ function seguirResultado() {
             c.momento = 0;
         }
     } else if (pend === "avanzar") {
-        // Victoria de playoff: otra ronda, o la pretemporada del mismo año si era la final.
-        if (c.momento < 4) {
+        // El momento personal abre los 6 partidos. Una victoria de playoff sigue el cuadro.
+        if (fasePrevia !== "temporada") {
+            prepararTemporadaNba();
+        } else if (c.momento < 4) {
             c.momento += 1;
             c.paso = "temporada";
+        } else if (vaAlAllStar()) {
+            convocarAllStar("off");
         } else {
             limpiarEntreno();
             c.paso = "offentreno";
         }
+    } else if (pend === "nba") {
+        c.momento += 1;
+        c.paso = "nba";
+    } else if (pend === "nbaplayin") {
+        if (fasePrevia !== "nbaplayin") {
+            c.paso = "nbaplayin";
+            c.momento = 0;
+        } else {
+            c.paso = "nbaplayin";
+            c.momento += 1;
+        }
+    } else if (pend === "nbaplayoff") {
+        c.paso = "temporada";
+        c.momento = 1;
+        c.partido = null;
     } else if (pend === "lnb") {
         c.momento += 1;
         c.paso = "lnb";
@@ -1070,10 +1469,27 @@ function seguirResultado() {
             c.anioNuevo = false;
         }
     } else if (pend === "fuera") {
-        // Eliminado: el año nuevo arranca y la pretemporada es la de esa temporada.
-        siguienteTemporada();
-        if (c.paso !== "leyenda") {
-            c.anioNuevo = true;
+        // Eliminado: si es estrella de la NBA, antes se juega el All Stars Game.
+        if (vaAlAllStar()) {
+            convocarAllStar("fuera");
+        } else {
+            siguienteTemporada();
+            if (c.paso !== "leyenda") {
+                c.anioNuevo = true;
+                c.paso = "offentreno";
+            }
+        }
+    } else if (pend === "postallstar") {
+        const despues = c.trasAllStar;
+        c.trasAllStar = null;
+        if (despues === "fuera") {
+            siguienteTemporada();
+            if (c.paso !== "leyenda") {
+                c.anioNuevo = true;
+                c.paso = "offentreno";
+            }
+        } else {
+            limpiarEntreno();
             c.paso = "offentreno";
         }
     } else if (pend === "draftnba") {
@@ -1081,7 +1497,7 @@ function seguirResultado() {
         c.localHecha = true;
         c.paso = "draftnba";
     } else if (pend === "temporada") {
-        // La temporada ya fue contada. Acá solo empiezan sus playoffs.
+        // Abre el año de la NBA: primero el momento personal, después los 6 partidos.
         c.momento = 0;
         c.paso = "temporada";
         c.anioNuevo = false;
@@ -1116,12 +1532,23 @@ function leyendaCarrera() {
 function tableroCarrera(editable) {
     const c = state.carrera;
     const eq = equipoActual();
-    const filas = STATS_CARRERA.map(([clave, , label]) => {
+    const filas = STATS_CARRERA.map(([clave, campo, label]) => {
         const valor = valorStat(clave);
+        const maximo = typeof techoStat === "function" ? techoStat(campo) : 99;
+        const usados = subidaXp(clave);
+        const conTope = topeXpActivo();
+        const tope = conTope && usados >= TOPE_SUBIDA_XP;
+        const enTecho = valor >= maximo;
+        const botonMas = enTecho
+            ? `<button class="chip" type="button" disabled>Tope ${maximo}</button>`
+            : (tope
+                ? `<button class="chip" type="button" disabled>Tope ${usados}/${TOPE_SUBIDA_XP}</button>`
+                : `<button class="chip sel" data-mc="stat" data-stat="${clave}" data-d="1">+1 · ${COSTO_XP} XP${conTope ? " · " + usados + "/" + TOPE_SUBIDA_XP : ""}</button>`);
         const controles = editable
-            ? `<div class="chips"><button class="chip" data-mc="stat" data-stat="${clave}" data-d="-1">−</button><button class="chip sel" data-mc="stat" data-stat="${clave}" data-d="1">+1 · ${COSTO_XP} XP</button></div>`
+            ? `<div class="chips"><button class="chip" data-mc="stat" data-stat="${clave}" data-d="-1">−</button>${botonMas}</div>`
             : "";
-        return `<div class="statline"><span>${label}</span><b class="num">${valor}</b></div><div class="mc-bar"><i style="width:${valor}%"></i></div>${controles}`;
+        const ancho = maximo ? Math.round(Math.min(100, valor / maximo * 100)) : 0;
+        return `<div class="statline"><span>${label}</span><b class="num">${valor}<small>/${maximo}</small></b></div><div class="mc-bar"><i style="width:${ancho}%"></i></div>${controles}`;
     }).join("");
     return `<div class="caja">
         <div class="ficha-top">
@@ -1138,8 +1565,11 @@ function tableroCarrera(editable) {
             <div><span>HINCHA</span><b>${state.hinchada}</b></div>
             <div><span>TITULOS</span><b>${state.titulos || 0}</b></div>
         </div>
+        ${typeof textoPromedios === "function" ? `<p class="nota">${esc(textoPromedios())}</p>` : ""}
         ${state.flash ? `<p class="flash">${esc(state.flash)}</p>` : ""}
         ${typeof textoCrecimiento === "function" && textoCrecimiento() ? `<p class="nota">${esc(textoCrecimiento())}</p>` : ""}
+        ${editable ? `<p class="nota">El número chico es el tope del puesto.</p>` : ""}
+        ${editable && topeXpActivo() ? `<p class="nota">Desde los 31, con XP subís hasta ${TOPE_SUBIDA_XP} puntos por estadística en la temporada.</p>` : ""}
         ${filas}
     </div>`;
 }
@@ -1165,7 +1595,7 @@ function pantallaPortada() {
         lead = "La temporada quedó guardada en tu cuenta.";
     } else if (eq && eq.liga === "NBA") {
         boton = "Seguir en " + eq.nombre;
-        lead = "Ya estás en la NBA. La temporada sigue con este club.";
+        lead = "En la NBA se juegan 6 partidos contra equipos distintos. Con 4 victorias entrás a playoffs. Con 3, al play-in. Con 2 o menos, se termina el año.";
     } else if (eq && eq.liga === "LNB") {
         boton = "Arrancar la Liga Nacional";
         lead = "Son 5 partidos. Si ganás 3, jugás los cuartos. Los rivales no se repiten de una temporada a la otra. La oferta de la NBA sube con cada punto de media desde 55.";
@@ -1249,7 +1679,7 @@ function asegurarOfertaEntreno() {
     return c.ofertaEntreno;
 }
 
-function htmlMarcador(nuestros, ellos, rivalId) {
+function htmlMarcador(nuestros, ellos, rivalId, nombres) {
     const local = typeof equipoActual === "function" ? equipoActual() : null;
     const rival = rivalId && typeof clubPorId === "function" ? clubPorId(rivalId) : null;
     const corto = (eq, fallback) => {
@@ -1257,13 +1687,21 @@ function htmlMarcador(nuestros, ellos, rivalId) {
         const largo = String(eq.nombre || "");
         return largo.length > 16 && eq.abreviatura ? eq.abreviatura : (largo || fallback);
     };
-    const cruce = (local ? local.nombre : "Vos") + " vs " + (rival ? rival.nombre : "Rival");
+    const nombreLocal = nombres && nombres.local ? nombres.local : corto(local, "VOS");
+    const nombreVisita = nombres && nombres.visita ? nombres.visita : corto(rival, "RIVAL");
+    const logoLocal = nombres && nombres.local ? selloAllStar(nombres.siglaLocal || "EST") : (typeof marcaLogo === "function" ? marcaLogo(local) : "");
+    const logoVisita = nombres && nombres.visita ? selloAllStar(nombres.siglaVisita || "OES") : (typeof marcaLogo === "function" ? marcaLogo(rival) : "");
+    const cruce = nombreLocal + " vs " + nombreVisita;
     return `<div class="marcador">
-        <div class="lado">${typeof marcaLogo === "function" ? marcaLogo(local) : ""}<b>${esc(corto(local, "VOS"))}</b></div>
+        <div class="lado">${logoLocal}<b>${esc(nombreLocal)}</b></div>
         <div class="pts"><b>${nuestros}</b><small>-</small><b>${ellos}</b></div>
-        <div class="lado">${typeof marcaLogo === "function" ? marcaLogo(rival) : ""}<b>${esc(corto(rival, "RIVAL"))}</b></div>
+        <div class="lado">${logoVisita}<b>${esc(nombreVisita)}</b></div>
     </div>
     <p class="nota">${esc(cruce)}</p>`;
+}
+
+function nombresMarcador(origen) {
+    return origen && origen.local ? origen : null;
 }
 
 function pantallaEco(p) {
@@ -1275,9 +1713,10 @@ function pantallaEco(p) {
         ? `<p class="nota">${p.overtimes ? "Siguen empatados. Otro overtime: dos jugadas más." : "Empate. Overtime: dos jugadas más."}</p>`
         : "";
     const boton = alargue ? "Overtime" : (ultima ? "Ver el cierre" : "Siguiente jugada");
-    return marcoCarrera("EN JUEGO · " + etiquetaPartido(p), `
-        <p class="en-juego">${p.overtimes ? "OVERTIME" : "EN JUEGO"}</p>
-        ${htmlMarcador(p.nuestros || 0, p.ellos || 0, p.rivalId)}
+    const marcaEco = p.paso === "allstar" ? "ALL STARS GAME · " : "";
+    return marcoCarrera("EN JUEGO · " + marcaEco + etiquetaPartido(p), `
+        <p class="en-juego">${p.overtimes ? "OVERTIME" : (p.paso === "allstar" ? "ALL STARS GAME" : "EN JUEGO")}</p>
+        ${htmlMarcador(p.nuestros || 0, p.ellos || 0, p.rivalId, nombresMarcador(p))}
         <div class="resultado-jugada ${clase}">
             <b>${esc(eco.titulo)}</b>
             <p>Elegiste ${esc(eco.jugada)}. ${esc(eco.texto)}</p>
@@ -1286,6 +1725,7 @@ function pantallaEco(p) {
         <div class="caja">
             <div class="statline"><span>${esc(eco.stat.split(" ")[0])}</span><b>${esc(eco.stat)}</b></div>
             <div class="statline"><span>Chance</span><b class="num">${eco.chance}%</b></div>
+            <div class="statline"><span>XP</span><b class="num">+${Number(eco.xp) || 0}</b></div>
             <div class="statline"><span>Tablero</span><b class="num">${p.nuestros || 0} - ${p.ellos || 0}</b></div>
         </div>
     `, `<button class="btn" data-mc="seguir-jugada">${boton}</button>`);
@@ -1320,7 +1760,10 @@ function pantallaPartido() {
     const ronda = p.paso === "temporada" ? nombreRonda(p.momento) : "";
     const rondaLnb = p.paso === "lnbplayoff" ? nombreRondaLnb(p.momento) : "";
     const partidoLnb = p.paso === "lnb" ? ("PARTIDO " + (Number(p.momento) + 1) + "/" + PARTIDOS_LNB) : "";
-    const marca = enOt ? ("OVERTIME " + p.overtimes) : (rondaLnb || ronda || partidoLnb || (p.paso === "debut" && c.evento && c.evento.ev ? c.evento.ev.t : (p.final ? "FINAL" : "PARTIDO")));
+    const partidoNba = p.paso === "nba" ? ("PARTIDO " + (Number(p.momento) + 1) + "/" + PARTIDOS_NBA) : "";
+    const partidoPlayin = p.paso === "nbaplayin" ? ("PLAY-IN " + (Number(p.momento) + 1) + "/" + PARTIDOS_PLAYIN_NBA) : "";
+    const partidoAll = p.paso === "allstar" ? "ALL STARS GAME" : "";
+    const marca = enOt ? ("OVERTIME " + p.overtimes) : (partidoAll || rondaLnb || ronda || partidoLnb || partidoNba || partidoPlayin || (p.paso === "debut" && c.evento && c.evento.ev ? c.evento.ev.t : (p.final ? "FINAL" : "PARTIDO")));
     const leadOt = enOt && p.indice === p.posesiones.length - 2
         ? (p.overtimes > 1 ? "Siguen empatados. " : "Empate. ") + "Overtime: dos jugadas para definir."
         : "";
@@ -1328,20 +1771,34 @@ function pantallaPartido() {
         ? (Number(p.momento) === 4 ? "Finales del mundo. El rival es de la otra conferencia. " : "El rival es de tu conferencia. ")
         : "";
     const ganadosLnb = Number(c.lnbGanados) || 0;
+    const ganadosNba = Number(c.nbaGanados) || 0;
+    const tablaNba = c.tablaNba && Number(c.tablaNba.temporada) === (Number(state.temporada) || 1) ? c.tablaNba : null;
+    const leadTabla = !enOt && p.indice === 0 && tablaNba && (p.paso === "temporada" || p.paso === "nbaplayin")
+        ? "Conferencia " + tablaNba.conferencia + ", puesto " + tablaNba.puesto + " (" + tablaNba.victorias + "-" + (JUEGOS_TEMPORADA_NBA - tablaNba.victorias) + "). "
+        : "";
     const leadLnb = !enOt && p.paso === "lnb" && p.indice === 0
         ? "Liga Nacional. Van " + ganadosLnb + " victorias. Con " + VICTORIAS_PLAYOFF_LNB + " de " + PARTIDOS_LNB + " se juegan los cuartos. El rival no se repite. "
+        : "";
+    const leadNba = !enOt && p.paso === "nba" && p.indice === 0
+        ? "NBA. Van " + ganadosNba + " victorias en " + PARTIDOS_NBA + ". Con " + VICTORIAS_DIRECTO_NBA + " entrás a playoffs. Con " + VICTORIAS_PLAYIN_NBA + ", al play-in. El rival no se repite. "
+        : "";
+    const leadPlayin = !enOt && p.paso === "nbaplayin" && p.indice === 0
+        ? "Play-in. " + (Number(p.momento) === 0 ? "Primer partido. " : "Segundo partido, contra otro equipo. ") + "Si ganás los dos, entrás a playoffs. "
+        : "";
+    const leadAll = !enOt && p.paso === "allstar" && p.indice === 0
+        ? "All Stars Game. " + (p.local || "ALL STAR ESTE") + " contra " + (p.visita || "ALL STAR OESTE") + ". Te convocaron: ALL STAR entra en la vitrina. "
         : "";
     const leadPlayoff = !enOt && rondaLnb && p.indice === 0
         ? (Number(p.momento) === 3
             ? "Final de la Liga Nacional. El ganador se queda con el título. "
             : "Eliminatoria por el título, contra un equipo que no enfrentaste. Clasificaste con " + ganadosLnb + " victorias. ")
         : "";
-    const cuenta = (ronda ? Number(p.momento) + "/4 · " : "") + (partidoLnb ? partidoLnb + " · " : "") + (rondaLnb ? "ELIMINATORIA · " : "");
+    const cuenta = (ronda ? Number(p.momento) + "/4 · " : "") + (partidoLnb ? partidoLnb + " · " : "") + (partidoNba ? partidoNba + " · " : "") + (partidoPlayin ? partidoPlayin + " · " : "") + (rondaLnb ? "ELIMINATORIA · " : "");
     return marcoCarrera("EN JUEGO · " + marca + " · " + cuenta + etiquetaPartido(p), `
-        <p class="en-juego">${enOt ? "OVERTIME" : (rondaLnb || ronda || partidoLnb || (p.final ? "FINAL" : "EN JUEGO"))}</p>
-        ${htmlMarcador(p.nuestros || 0, p.ellos || 0, p.rivalId)}
+        <p class="en-juego">${enOt ? "OVERTIME" : (partidoAll || rondaLnb || ronda || partidoLnb || partidoNba || partidoPlayin || (p.final ? "FINAL" : "EN JUEGO"))}</p>
+        ${htmlMarcador(p.nuestros || 0, p.ellos || 0, p.rivalId, nombresMarcador(p))}
         <h1>${esc(pos.t)}</h1>
-        <p class="lead">${leadOt ? esc(leadOt) : ""}${leadRonda ? esc(leadRonda) : ""}${leadLnb ? esc(leadLnb) : ""}${leadPlayoff ? esc(leadPlayoff) : ""}${esc(pos.d)}</p>
+        <p class="lead">${leadOt ? esc(leadOt) : ""}${leadTabla ? esc(leadTabla) : ""}${leadRonda ? esc(leadRonda) : ""}${leadLnb ? esc(leadLnb) : ""}${leadNba ? esc(leadNba) : ""}${leadPlayin ? esc(leadPlayin) : ""}${leadAll ? esc(leadAll) : ""}${leadPlayoff ? esc(leadPlayoff) : ""}${esc(pos.d)}</p>
         ${regla}
     `, ops);
 }
@@ -1398,7 +1855,11 @@ function pantallaOfertasCarrera() {
         : (eq && eq.liga === "LNB"
             ? `<p class="lead">Este año la NBA no llamó.</p>`
             : `<p class="lead">Nadie llega a tu media ${grlCarrera()}. Entrená y volvé. La NBA abre en 78.</p>`);
-    const retiro = (state.edad || 0) >= 33 ? `<button class="btn ghost" data-mc="jubilar">Retirarme</button>` : "";
+    const edad = Number(state.edad) || 19;
+    const notaEdad = edad >= 31
+        ? `<p class="nota">${edad >= 40 ? "Tenés 40. Si no colgás los botines ahora, esta temporada es la última." : (edad >= 33 ? "Tenés " + edad + " años. Las estadísticas bajan solas y el XP rinde menos. Podés seguir hasta los 40." : "Tenés " + edad + " años. El XP rinde menos. Las estadísticas empiezan a bajar a los 33. Podés seguir hasta los 40.")}</p>`
+        : "";
+    const retiro = edad >= 31 ? `<button class="btn ghost" data-mc="jubilar">Retirarme</button>` : "";
     const quedar = eq ? `<button class="btn ghost" data-mc="quedar">Quedarme en ${esc(eq.nombre)}</button>` : "";
     const avisoNba = eq && eq.liga === "LNB"
         ? " La chance de una oferta de la NBA es del " + chanceOfertaNba() + "%." + fraseProximaChanceNba()
@@ -1407,6 +1868,7 @@ function pantallaOfertasCarrera() {
         ${tableroCarrera(false)}
         <h1>OFERTAS</h1>
         <p class="lead">Tu media es ${grlCarrera()}. ${eq && eq.liga === "NBA" ? "En la NBA ya no se vuelve a la liga local." : "Podés subir de liga si el club te da el mínimo."}${avisoNba}</p>
+        ${notaEdad}
         ${vacio}
     `, `${botones}${quedar}${retiro}`);
 }
@@ -1414,8 +1876,9 @@ function pantallaOfertasCarrera() {
 function pantallaResultadoCarrera() {
     const r = state.carrera.resultado || { titulo: "Listo", detalle: "", tweets: [] };
     const tablero = r.marcador
-        ? htmlMarcador(r.marcador.nuestros, r.marcador.ellos, r.marcador.rivalId)
+        ? htmlMarcador(r.marcador.nuestros, r.marcador.ellos, r.marcador.rivalId, nombresMarcador(r.marcador))
         : tableroCarrera(false);
+    const tabla = r.tabla ? htmlTablaNba(r.tabla) : "";
     const jugadas = (r.jugadas || []).map((linea) => `<p class="nota">${esc(linea)}</p>`).join("");
     const tw = (r.tweets || []).map((t) =>
         `<div class="tweet"><b>${esc(t.u)}</b><span>${esc(t.h)}</span><p>${esc(t.t)}</p></div>`
@@ -1426,6 +1889,7 @@ function pantallaResultadoCarrera() {
             <b>${esc(r.titulo)}</b>
             <p>${esc(r.detalle)}</p>
         </div>
+        ${tabla}
         ${jugadas}
         ${tw}
     `, `<button class="btn" data-mc="seguir">Continuar</button>`);
@@ -1444,10 +1908,14 @@ function pantallaLeyenda() {
         ["El Elegido", (state.rival ? state.rival.puntos : 0) + " pts"],
         ["Score", score]
     ].map(([k, v]) => `<div class="statline"><span>${k}</span><b class="num">${v}</b></div>`).join("");
+    const copas = (state.trofeos || []).filter((trofeo) => trofeo.cantidad > 0).map(htmlTrofeo).join("");
+    const vitrina = copas ? `<div class="caja"><h2>VITRINA</h2><div class="copas">${copas}</div></div>` : "";
+    const cierre = (Number(state.edad) || 19) >= 40 ? " Llegaste a los 40." : "";
     return marcoCarrera("RETIRO", `
         <h1>${esc(titulo)}</h1>
-        <p class="lead">${esc(texto)} ${eq ? "Último club: " + esc(eq.nombre) + "." : ""} Colgar los botines abre el camino de manager.</p>
+        <p class="lead">${esc(texto)} ${eq ? "Último club: " + esc(eq.nombre) + "." : ""}${cierre} Colgar los botines abre el camino de manager.</p>
         <div class="caja">${filas}</div>
+        ${vitrina}
     `, `<button class="btn" data-accion="retirar">Colgar los botines</button>`);
 }
 
@@ -1458,7 +1926,7 @@ function pantallaModoCarrera() {
     }
     if (c.paso === "portada") return pantallaPortada();
     if (c.paso === "draft") return pantallaDraft();
-    if (c.paso === "lnb" || c.paso === "lnbplayoff") return pantallaPartido();
+    if (c.paso === "lnb" || c.paso === "lnbplayoff" || c.paso === "nba" || c.paso === "nbaplayin" || c.paso === "allstar") return pantallaPartido();
     if (c.paso === "debut") {
         const actual = eventoActualCarrera();
         if (actual.ev && actual.ev.partido) return pantallaPartido();
@@ -1572,7 +2040,7 @@ function cobrarEntrenoCarrera(gano, juego) {
     const nombre = ENTRENO_CARRERA[juego] ? ENTRENO_CARRERA[juego].titulo : "Entrenamiento";
     state.flash = ya
         ? nombre + " ya estaba jugado esta temporada."
-        : (nombre + ": " + (gano ? "victoria. +" + XP_MINIJUEGO + " XP." : "sin victoria. Esta temporada no se repite."));
+        : (nombre + ": " + (gano ? "victoria. +" + xp + " XP." : "sin victoria. Esta temporada no se repite."));
     persistir();
 }
 
@@ -1689,14 +2157,15 @@ function ligarModoCarrera(raiz) {
                     limpiarEntreno();
                     state.hinchada = 60;
                     state.quimica = 60;
-                    guardarPaso("temporada", "Drafteado por " + club.nombre, "Arranca la temporada en la NBA.", "bien");
+                    guardarPaso("temporada", "Drafteado por " + club.nombre, "Arranca la temporada en la NBA. Primero son 6 partidos, sin repetir rival.", "bien");
                 } else {
-                    c.xp += 10;
+                    const xpFirma = XP_FICHAJE;
+                    c.xp += xpFirma;
                     if (salto) state.hinchada = 55;
                     else sumarHinchada(4);
                     state.rival.puntos += 9;
                     // Firmar cierra el mercado y deja el año como lo marcó pendTrasOferta.
-                    guardarPaso(pendTrasOferta(), "Fichaje: " + club.nombre, club.liga + " · +10 XP.", "bien");
+                    guardarPaso(pendTrasOferta(), "Fichaje: " + club.nombre, club.liga + " · +" + xpFirma + " XP.", "bien");
                 }
                 render();
                 return;
@@ -1706,18 +2175,24 @@ function ligarModoCarrera(raiz) {
                 const delta = Number(nodo.dataset.d);
                 const campo = campoStat(clave);
                 const actual = Number(state.stats[campo]) || 50;
+                const maximo = typeof techoStat === "function" ? techoStat(campo) : 99;
                 const cuerpo = document.querySelector("#app .body");
                 const scroll = cuerpo ? cuerpo.scrollTop : 0;
                 if (delta > 0) {
-                    if (c.xp < COSTO_XP) {
+                    if (topeXpActivo() && subidaXp(clave) >= TOPE_SUBIDA_XP) {
+                        state.flash = nombreStat(clave) + " ya sumó " + TOPE_SUBIDA_XP + " con XP esta temporada.";
+                    } else if (c.xp < COSTO_XP) {
                         state.flash = "Te faltan XP. Cada punto sale " + COSTO_XP + ".";
-                    } else if (actual >= 99) {
-                        state.flash = nombreStat(clave) + " ya está en 99.";
+                    } else if (actual >= maximo) {
+                        state.flash = typeof textoTope === "function" ? textoTope(campo) : (nombreStat(clave) + " ya está en " + maximo + ".");
                     } else {
-                        state.stats[campo] = actual + 1;
+                        state.stats[campo] = Math.min(maximo, actual + 1);
                         c.xp -= COSTO_XP;
+                        if (topeXpActivo()) subidasXp()[clave] = subidaXp(clave) + 1;
                         reflejarCalibre();
-                        state.flash = nombreStat(clave) + " +1. Media " + grlCarrera() + ".";
+                        state.flash = topeXpActivo()
+                            ? nombreStat(clave) + " +1. " + subidaXp(clave) + "/" + TOPE_SUBIDA_XP + " con XP. Media " + grlCarrera() + "."
+                            : nombreStat(clave) + " +1. Media " + grlCarrera() + ".";
                     }
                 } else if (delta < 0) {
                     if (actual <= 24) {
@@ -1725,6 +2200,7 @@ function ligarModoCarrera(raiz) {
                     } else {
                         state.stats[campo] = actual - 1;
                         c.xp += COSTO_XP;
+                        if (topeXpActivo() && subidaXp(clave) > 0) subidasXp()[clave] = subidaXp(clave) - 1;
                         reflejarCalibre();
                         state.flash = nombreStat(clave) + " -1. +" + COSTO_XP + " XP.";
                     }

@@ -23,10 +23,11 @@ const HABILIDADES = [
 
 const TROFEOS_BASE = [
     "CAMPEÓN NBA",
-    "MVP FINALES",
+    "FINALS MVP",
     "MVP TEMPORADA",
-    "ALL-STAR",
+    "ALL STAR",
     "MEJOR DEFENSOR",
+    "DPOY",
     "ANILLO DE CAMPEÓN"
 ];
 
@@ -91,7 +92,7 @@ function estadoInicial() {
         posicion: "",
         tez: "#a96f48",
         cabello: "h1",
-        edad: 19,
+        edad: 16,
         altura: 196,
         peso: 90,
         ciudad: "Buenos Aires, Argentina",
@@ -140,7 +141,7 @@ function estadoInicial() {
         ligaMercado: "NCAA",
         confirmarCierre: false,
         revision: 0,
-        crecimiento: { edad: 19, usado: 0 },
+        crecimiento: { edad: 16, usado: 0 },
         carrera: null,
         cuenta: { google: false, user: null, jugadores: [], historial: { carreras: 0, partidas: 0, partidos: 0, victorias: 0 } }
     };
@@ -176,6 +177,16 @@ function esc(valor) {
     return String(valor ?? "").replace(/[&<>"']/g, (c) => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[c]));
+}
+
+function htmlTrofeo(trofeo) {
+    const fotos = {
+        "FINALS MVP": "/assets/mvp-finales.png?v=3",
+        "CAMPEÓN NBA": "/assets/campeon-nba.png?v=2"
+    };
+    const src = fotos[trofeo.nombre];
+    const foto = src ? `<img class="trofeo-foto" src="${src}" alt="">` : "";
+    return `<div class="trofeo"><span>${foto}${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`;
 }
 
 function clamp(n, min, max) {
@@ -286,9 +297,28 @@ function aplicarTema() {
 }
 
 function ovr() {
+    if (!state.stats) return 0;
+    return mediaGeneral();
+}
+
+function mediaGeneral() {
     const s = state.stats;
     if (!s) return 0;
-    return Math.round((s.tiro + s.velocidad + s.fuerza + s.control + s.defensa) / 5);
+    const campos = ["velocidad", "tiro", "fuerza", "control", "defensa"];
+    let lleno = 0;
+    let completas = 0;
+    campos.forEach((campo) => {
+        const techo = techoStat(campo);
+        const valor = Math.max(0, Number(s[campo]) || 0);
+        if (valor >= techo) {
+            completas += 1;
+            lleno += 1;
+        } else if (techo > 0) {
+            lleno += valor / techo;
+        }
+    });
+    if (completas === campos.length) return 99;
+    return Math.min(98, Math.round(lleno / campos.length * 99));
 }
 
 function numerosVisibles() {
@@ -297,15 +327,130 @@ function numerosVisibles() {
     return `<p class="nums">${box.ppg}<small>PTS</small> ${box.reb}<small>REB</small> ${box.ast}<small>AST</small></p>`;
 }
 
-function boxScore() {
-    const s = state.stats || BASES.PG;
-    return {
-        ppg: (s.tiro / 12 + s.control / 40).toFixed(1),
-        reb: (s.fuerza / 16).toFixed(1),
-        ast: (s.control / 14).toFixed(1),
-        stl: (s.defensa / 38).toFixed(1),
-        blk: (s.fuerza / 48).toFixed(1)
+function esEstrellaDeLaLiga() {
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    return media >= 90;
+}
+
+const TECHO_STAT = {
+    PG: { velocidad: 99, tiro: 99, fuerza: 85, control: 95, defensa: 80 },
+    SG: { velocidad: 96, tiro: 99, fuerza: 82, control: 90, defensa: 91 },
+    SF: { velocidad: 94, tiro: 99, fuerza: 90, control: 85, defensa: 90 },
+    PF: { velocidad: 86, tiro: 90, fuerza: 99, control: 84, defensa: 99 },
+    C:  { velocidad: 84, tiro: 90, fuerza: 99, control: 86, defensa: 99 }
+};
+
+function techoStat(campo, pos) {
+    const puesto = pos || state.posicion || "SF";
+    const fila = TECHO_STAT[puesto] || TECHO_STAT.SF;
+    const n = Number(fila[campo]);
+    return n || 99;
+}
+
+function recortarStatsAlPuesto() {
+    if (!state.stats || !state.posicion || !TECHO_STAT[state.posicion]) return;
+    let bajo = false;
+    Object.keys(TECHO_STAT[state.posicion]).forEach((campo) => {
+        const techo = techoStat(campo);
+        if (Number(state.stats[campo]) > techo) {
+            state.stats[campo] = techo;
+            bajo = true;
+        }
+    });
+    if (bajo) {
+        const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+        if ((Number(state.calibre) || 0) > media) state.calibre = media;
+    }
+    if (state.stats && typeof reflejarCalibre === "function") reflejarCalibre();
+}
+
+function techosPosicion(pos) {
+    const tabla = {
+        PG: { reb: 6, ast: 10 },
+        SG: { reb: 7, ast: 8 },
+        SF: { reb: 8, ast: 7 },
+        PF: { reb: 9, ast: 6 },
+        C: { reb: 10, ast: 6 }
     };
+    return tabla[pos] || { reb: 8, ast: 7 };
+}
+
+function factorAtributo(stat) {
+    const n = clamp(Number(stat) || 0, 70, 99);
+    return 0.7 + 0.3 * ((n - 70) / 29);
+}
+
+function unidadEstable(salto) {
+    const texto = [state.nombre || "", state.temporada || 1, state.edad || 0, state.posicion || "", salto].join("|");
+    let h = 2166136261;
+    for (let i = 0; i < texto.length; i++) {
+        h ^= texto.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 10000) / 10000;
+}
+
+function alrededor(valor, amplitud, salto) {
+    return valor + (unidadEstable(salto) * 2 - 1) * amplitud;
+}
+
+function promediosPartido() {
+    const s = state.stats || BASES[state.posicion] || BASES.PG;
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    const tiroStat = Number(s.tiro) || 0;
+    const fuerzaStat = Number(s.fuerza) || 0;
+    const controlStat = Number(s.control) || 0;
+    const stl = (Number(s.defensa) || 0) / 38;
+    const blk = fuerzaStat / 48;
+    // Del 45 al 99 el promedio sube parejo hasta el techo del puesto.
+    // Pasados los 92, esa línea se mueve alrededor del techo y no cae siempre en el mismo número.
+    const avance = clamp((media - 45) / 54, 0, 1);
+    const tiro = clamp((tiroStat - 80) / 19, 0, 1);
+    const techo = techosPosicion(state.posicion);
+    const bajo = {
+        ppg: tiroStat / 12 + controlStat / 40,
+        reb: fuerzaStat / 16,
+        ast: controlStat / 14
+    };
+    const alto = {
+        ppg: Math.min(32, 24 + 8 * (0.85 * tiro + 0.15)),
+        reb: clamp(techo.reb * factorAtributo(fuerzaStat), 6, 10),
+        ast: clamp(techo.ast * factorAtributo(controlStat), 6, 10)
+    };
+    let ppg = bajo.ppg + (alto.ppg - bajo.ppg) * avance;
+    let reb = bajo.reb + (alto.reb - bajo.reb) * avance;
+    let ast = bajo.ast + (alto.ast - bajo.ast) * avance;
+    if (media > 92) {
+        ppg = alrededor(ppg, 2, 1);
+        reb = alrededor(reb, 1.2, 2);
+        ast = alrededor(ast, 1.4, 3);
+    }
+    return { ppg: ppg, reb: reb, ast: ast, stl: stl, blk: blk };
+}
+
+function boxScore() {
+    const p = promediosPartido();
+    return {
+        ppg: p.ppg.toFixed(1),
+        reb: p.reb.toFixed(1),
+        ast: p.ast.toFixed(1),
+        stl: p.stl.toFixed(1),
+        blk: p.blk.toFixed(1)
+    };
+}
+
+function textoPromedios() {
+    const box = boxScore();
+    return "Promedio " + box.ppg + " PTS, " + box.reb + " REB, " + box.ast + " AST.";
+}
+
+function promedioGrande(linea) {
+    return linea.ppg >= 27 && linea.reb >= 6 && linea.ast >= 6;
+}
+
+function chanceMvpPorLinea(linea) {
+    const calidad = clamp((linea.ppg - 27) / 5, 0, 1);
+    return Math.round(40 + calidad * 30);
 }
 
 function rol() {
@@ -383,6 +528,33 @@ function migrar() {
     if (!state.trofeos || !state.trofeos.length) {
         state.trofeos = TROFEOS_BASE.map((nombre) => ({ nombre, cantidad: 0 }));
     }
+    ["ALL-STAR", "All Star"].forEach((viejoNombre) => {
+        const viejo = state.trofeos.find((item) => item.nombre === viejoNombre);
+        if (!viejo) return;
+        const nuevo = state.trofeos.find((item) => item.nombre === "ALL STAR");
+        if (nuevo && nuevo !== viejo) {
+            nuevo.cantidad += viejo.cantidad;
+            state.trofeos = state.trofeos.filter((item) => item !== viejo);
+        } else {
+            viejo.nombre = "ALL STAR";
+        }
+    });
+    ["MVP FINALES", "Finals MVP"].forEach((viejoNombre) => {
+        const mvpViejo = state.trofeos.find((item) => item.nombre === viejoNombre);
+        if (!mvpViejo) return;
+        const mvpNuevo = state.trofeos.find((item) => item.nombre === "FINALS MVP");
+        if (mvpNuevo && mvpNuevo !== mvpViejo) {
+            mvpNuevo.cantidad += mvpViejo.cantidad;
+            state.trofeos = state.trofeos.filter((item) => item !== mvpViejo);
+        } else {
+            mvpViejo.nombre = "FINALS MVP";
+        }
+    });
+    TROFEOS_BASE.forEach((nombre) => {
+        if (!state.trofeos.some((item) => item.nombre === nombre)) {
+            state.trofeos.push({ nombre, cantidad: 0 });
+        }
+    });
     state.habilidades = state.habilidades || [];
     state.cobradas = state.cobradas || [];
     state.trayectoria = state.trayectoria || [];
@@ -401,6 +573,7 @@ function migrar() {
     state.tipo = state.tipo || "novato";
     state.dificultad = state.dificultad || "baja";
     state.ligaMercado = state.ligaMercado || "NCAA";
+    recortarStatsAlPuesto();
     state.confirmarCierre = !!state.confirmarCierre;
     if (!state.cuenta) state.cuenta = { google: false, user: null, jugadores: [], historial: { carreras: 0, partidas: 0, partidos: 0, victorias: 0 } };
     if (!state.cuenta.historial) state.cuenta.historial = { carreras: 0, partidas: 0, partidos: 0, victorias: 0 };
@@ -466,12 +639,12 @@ function calendarioBase() {
     ];
 }
 
-function eventosExtra() {
+function eventosExtra(ultimo) {
     return [
         { tipo: "stat", titulo: "PRETEMPORADA", anio: true },
         { tipo: "oferta", titulo: "OTRA OFERTA" },
         { tipo: "mini", titulo: "LA COPA", juego: "memoria", allstar: true },
-        { tipo: "retiro", titulo: "EL RETIRO", forzado: true }
+        { tipo: "retiro", titulo: "EL RETIRO", forzado: !!ultimo }
     ];
 }
 
@@ -583,8 +756,14 @@ function textoDe(ev) {
         if (!eq) return "El Elegido ya tiene club. Vos todavía estás en la calle. Quedarte también es una decisión.";
         return rivalClub + " es el clásico de tu liga. Firmar ahí es de traidor. Quedarte es de ídolo.";
     }
-    if (ev.forzado) {
-        return "El cuerpo dijo basta. Esta vez el retiro no se negocia.";
+    if (ev.forzado || (Number(state.edad) || 19) >= 40) {
+        return "Tenés 40 años. Esta vez el retiro no se negocia.";
+    }
+    if ((Number(state.edad) || 19) >= 33) {
+        return "Tenés " + state.edad + " años. El cuerpo afloja y el XP rinde menos. Podés colgar los botines o seguir hasta los 40.";
+    }
+    if ((Number(state.edad) || 19) >= 31) {
+        return "Tenés " + state.edad + " años. El XP rinde menos. El cuerpo empieza a aflojar a los 33. Podés colgar los botines o seguir hasta los 40.";
     }
     return "Tenés " + state.edad + " años. Podés colgar los botines o pedir una temporada más.";
 }
@@ -678,7 +857,7 @@ function aplicarOpcion(indice) {
             state.edad += 1;
             state.flash = (sube ? etiquetaStat(clave) + " +" + sube + ". " : "") + madurar();
         } else {
-            state.flash = sube ? etiquetaStat(clave) + " +" + sube + ". Calibre " + state.calibre + "." : textoTope();
+            state.flash = sube ? etiquetaStat(clave) + " +" + sube + ". Calibre " + state.calibre + "." : textoTope(clave);
         }
         state.rival.puntos += 8;
         avanzar();
@@ -706,7 +885,8 @@ function aplicarOpcion(indice) {
         return;
     }
     if (ev.tipo === "retiro") {
-        if (indice === 0 || ev.forzado) {
+        const edad = Number(state.edad) || 19;
+        if (indice === 0 || ev.forzado || edad >= 40) {
             state.fase = "retiro";
             state.flash = "";
             persistir();
@@ -714,9 +894,9 @@ function aplicarOpcion(indice) {
             return;
         }
         state.extra = true;
-        state.edad += 1;
+        state.edad = edad + 1;
         state.temporada += 1;
-        state.calendario = state.calendario.concat(eventosExtra());
+        state.calendario = state.calendario.concat(eventosExtra(state.edad >= 40));
         state.flash = "Una temporada más. " + madurar();
         avanzar();
         render();
@@ -752,7 +932,16 @@ function linkJuego(juego, modo) {
         + "&dificultad=" + encodeURIComponent(state.dificultad || "baja");
     if (juego === "tiro") return "/minijuegos/tiro/?" + marca;
     if (juego === "pase") return "/minijuegos/pase/?" + marca;
-    if (juego === "dribling") return "/minijuegos/dribling/?" + marca;
+    if (juego === "dribling") {
+        let colores = "";
+        if (eq && /^#[0-9a-fA-F]{6}$/.test(eq.color_primario || "")) {
+            colores += "&primario=" + encodeURIComponent(eq.color_primario);
+            if (/^#[0-9a-fA-F]{6}$/.test(eq.color_secundario || "")) {
+                colores += "&secundario=" + encodeURIComponent(eq.color_secundario);
+            }
+        }
+        return "/minijuegos/dribling/?" + marca + colores;
+    }
     if (juego === "reflejos") return "reflejos/index.php?equipo=" + equipo + "&nombre=" + nombre + "&" + marca;
     if (juego === "memoria") return "Juegodememoria.html?" + marca;
     if (juego === "simon") return "Simondice.html?" + marca;
@@ -793,7 +982,7 @@ function botonesDe(ev) {
         const modo = ev.calle ? "entreno" : "partido";
         return `<a class="btn eleccion" data-juego="${esc(ev.juego)}" data-modo="${modo}" href="${esc(linkJuego(ev.juego, modo))}">${etiquetaJuego(ev)}</a>`;
     }
-    if (ev.forzado) {
+    if (ev.forzado || (Number(state.edad) || 19) >= 40) {
         return `<button class="btn eleccion" data-op="0">Me retiro</button>`;
     }
     return `<button class="btn eleccion" data-op="0">Me retiro</button>
@@ -804,7 +993,7 @@ function fijarStats() {
     const base = Object.assign({}, BASES[state.posicion] || BASES.PG);
     const ajuste = (estiloActual() && estiloActual().ajuste) || {};
     Object.keys(ajuste).forEach((campo) => {
-        base[campo] = clamp((Number(base[campo]) || 0) + Number(ajuste[campo] || 0), 24, 99);
+        base[campo] = clamp((Number(base[campo]) || 0) + Number(ajuste[campo] || 0), 24, techoStat(campo));
     });
     state.stats = base;
 }
@@ -826,7 +1015,7 @@ async function comenzarAJugar() {
     if (campoDorsal) state.dorsal = campoDorsal.value;
     state.tez = "#a96f48";
     state.cabello = "h1";
-    state.edad = 19;
+    state.edad = 16;
     state.altura = cuerpo[0];
     state.peso = cuerpo[1];
     state.dorsal = String(state.dorsal || "11").replace(/\D/g, "").slice(0, 2) || "11";
@@ -835,7 +1024,7 @@ async function comenzarAJugar() {
     state.equipoId = null;
     state.conferencia = "";
     state.calibre = 46;
-    state.crecimiento = { edad: 19, usado: 0 };
+    state.crecimiento = { edad: 16, usado: 0 };
     fijarStats();
     state.quimica = 58;
     state.hinchada = 58;
@@ -1044,8 +1233,9 @@ function cobrarRecompensa() {
 function aplicarSubida(campo, cuanto) {
     if (!state.stats || !campo || cuanto <= 0) return 0;
     const actual = Number(state.stats[campo]) || 0;
-    if (actual >= 99) return 0;
-    const sube = Math.min(cuanto, 99 - actual);
+    const techo = techoStat(campo);
+    if (actual >= techo) return 0;
+    const sube = Math.min(cuanto, techo - actual);
     state.stats[campo] = actual + sube;
     return sube;
 }
@@ -1059,13 +1249,130 @@ function sumarCalibre(n) {
     return sube;
 }
 
-function madurar() {
-    if (typeof reflejarCalibre === "function") reflejarCalibre();
-    return "Cumpliste un año.";
+function bajarStat(campo, cuanto) {
+    if (!state.stats || !campo || cuanto <= 0) return 0;
+    const actual = Number(state.stats[campo]) || 0;
+    if (actual <= 24) return 0;
+    const baja = Math.min(cuanto, actual - 24);
+    state.stats[campo] = actual - baja;
+    return baja;
 }
 
-function textoTope() {
-    return "Esa habilidad ya está en 99.";
+function desgastarCuerpo() {
+    const edad = Number(state.edad) || 19;
+    if (edad < 33 || !state.stats) return "";
+    const cortes = edad < 37
+        ? [["velocidad", 8], ["fuerza", 7], ["tiro", 6], ["defensa", 5], ["control", 4]]
+        : [["velocidad", 10], ["fuerza", 8], ["tiro", 8], ["defensa", 6], ["control", 6]];
+    const nombres = { velocidad: "Velocidad", fuerza: "Fuerza", tiro: "Tiro", defensa: "Defensa", control: "Control" };
+    const partes = [];
+    cortes.forEach((corte) => {
+        const baja = bajarStat(corte[0], corte[1]);
+        if (baja) partes.push(nombres[corte[0]] + " -" + baja);
+    });
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    if ((Number(state.calibre) || 0) > media) state.calibre = media;
+    if (!partes.length) return " El cuerpo ya está en el piso.";
+    return " El cuerpo afloja: " + partes.join(", ") + ".";
+}
+
+function factorXpEdad() {
+    const edad = Number(state.edad) || 19;
+    if (edad < 31) return 1;
+    if (edad === 31) return 0.85;
+    if (edad === 32) return 0.75;
+    if (edad <= 34) return 0.6;
+    if (edad <= 36) return 0.5;
+    if (edad <= 38) return 0.4;
+    return 0.3;
+}
+
+function xpPorEdad(base) {
+    const n = Math.round(Number(base) || 0);
+    if (n <= 0) return 0;
+    return Math.max(1, Math.round(n * factorXpEdad()));
+}
+
+function esEstrellaDelEquipo() {
+    const eq = typeof equipoActual === "function" ? equipoActual() : null;
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    const piso = eq ? Number(eq.minima) || 0 : 80;
+    return media >= Math.max(80, piso - 2);
+}
+
+function sortearPremiosTemporada(ganados) {
+    const partes = [];
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    const ganadosN = Number(ganados) || 0;
+    const linea = typeof promediosPartido === "function" ? promediosPartido() : { ppg: 0, reb: 0, ast: 0 };
+    const grande = typeof promedioGrande === "function" && promedioGrande(linea);
+    if (ganadosN >= 6 && media >= 90) {
+        if (Math.random() * 100 < 80) {
+            sumarTrofeo("MVP TEMPORADA");
+            partes.push(" MVP de la temporada. Entra en la vitrina, aparte del anillo.");
+        } else {
+            partes.push(" El MVP de la temporada se lo llevó otro. Tu chance era del 80%.");
+        }
+    } else if (ganadosN === 5 && grande) {
+        const chance = chanceMvpPorLinea(linea);
+        if (Math.random() * 100 < chance) {
+            sumarTrofeo("MVP TEMPORADA");
+            partes.push(" MVP de la temporada. Chance " + chance + "%. Entra en la vitrina, aparte del anillo.");
+        } else {
+            partes.push(" El MVP de la temporada se lo llevó otro. Tu chance era del " + chance + "%.");
+        }
+    }
+    const fuerza = Number(state.stats && state.stats.fuerza) || 0;
+    const defensa = Number(state.stats && state.stats.defensa) || 0;
+    const chancesDefensa = { PG: 30, SG: 40, SF: 55, PF: 70, C: 80 };
+    if (ganadosN >= 6 && fuerza >= 90 && defensa >= 90) {
+        if (Math.random() * 100 < 85) {
+            sumarTrofeo("DPOY");
+            partes.push(" DPOY, jugador defensivo del año. Entra en la vitrina, aparte.");
+        } else {
+            partes.push(" El DPOY se lo llevó otro. Tu chance era del 85%.");
+        }
+    } else if (ganadosN >= 5 && grande) {
+        const chance = chancesDefensa[state.posicion] || 40;
+        const puesto = (typeof POSICIONES !== "undefined" && POSICIONES[state.posicion]) || state.posicion || "tu puesto";
+        if (Math.random() * 100 < chance) {
+            sumarTrofeo("DPOY");
+            partes.push(" DPOY desde el puesto de " + puesto + ". Chance " + chance + "%. Entra en la vitrina, aparte.");
+        } else {
+            partes.push(" El DPOY se lo llevó otro. Desde " + puesto + " tu chance era del " + chance + "%.");
+        }
+    }
+    return partes.join("");
+}
+
+function sortearMvpFinales() {
+    const estrella = esEstrellaDelEquipo();
+    const media = typeof grlCarrera === "function" ? grlCarrera() : ovr();
+    const eq = typeof equipoActual === "function" ? equipoActual() : null;
+    const piso = eq ? Number(eq.minima) || 80 : 80;
+    const chance = estrella ? Math.min(92, 78 + Math.max(0, media - piso)) : 10;
+    if (Math.random() * 100 >= chance) {
+        return estrella ? " El MVP de las Finales se lo llevó otro. Tu chance era del " + chance + "%." : "";
+    }
+    sumarTrofeo("FINALS MVP");
+    return estrella
+        ? " MVP de las Finales. Entra en la vitrina, aparte del anillo."
+        : " MVP de las Finales, contra todo pronóstico. Entra en la vitrina, aparte del anillo.";
+}
+
+function madurar() {
+    if (typeof reflejarCalibre === "function") reflejarCalibre();
+    const desgaste = desgastarCuerpo();
+    const factor = factorXpEdad();
+    const avisoXp = factor < 1 ? " El XP de la temporada rinde al " + Math.round(factor * 100) + "%." : "";
+    return "Cumpliste un año." + desgaste + avisoXp;
+}
+
+function textoTope(campo) {
+    const techo = techoStat(campo);
+    const nombre = { velocidad: "La velocidad", tiro: "El tiro", fuerza: "La fuerza", control: "El control", defensa: "La defensa" }[campo] || "Esa habilidad";
+    const puesto = String((POSICIONES[state.posicion] || "jugador")).toLowerCase();
+    return nombre + " de un " + puesto + " llega hasta " + techo + ".";
 }
 
 function textoCrecimiento() {
@@ -1166,17 +1473,17 @@ function resolverMinijuego(gano) {
             if (liga === "NBA") {
                 sumarTrofeo("CAMPEÓN NBA");
                 sumarTrofeo("ANILLO DE CAMPEÓN");
-                if (ovr() >= 80) sumarTrofeo("MVP FINALES");
             } else if (liga === "LNB") {
                 sumarTrofeo("CAMPEÓN LNB");
             } else if (liga === "NCAA") {
                 sumarTrofeo("CAMPEÓN NCAA");
             }
             if (liga !== "CALLE") state.titulos += 1;
-            state.flash = liga === "NBA" ? "Campeón de la NBA." : "Ganaste la final.";
+            const mvp = liga === "NBA" ? sortearMvpFinales() : "";
+            state.flash = liga === "NBA" ? "Campeón de la NBA." + mvp : "Ganaste la final.";
         }
         if (ev && ev.allstar) {
-            sumarTrofeo("ALL-STAR");
+            sumarTrofeo("ALL STAR");
             state.flash = "All-Star. Tu nombre entró en la lista.";
         }
         state.rival.puntos += 8;
@@ -1272,25 +1579,29 @@ function ligaAbierta(liga) {
     return nivelManager() >= pide;
 }
 
+function htmlAtributos() {
+    const s = state.stats || BASES[state.posicion] || BASES.PG;
+    const filas = [
+        ["CALIBRE", state.calibre || 46, ""],
+        ["TIRO", s.tiro, "tiro"],
+        ["VELOCIDAD", s.velocidad, "velocidad"],
+        ["FUERZA", s.fuerza, "fuerza"],
+        ["CONTROL", s.control, "control"],
+        ["DEFENSA", s.defensa, "defensa"]
+    ];
+    return filas.map(([nombre, valor, campo]) => {
+        const maximo = campo ? techoStat(campo) : 0;
+        const marca = maximo ? `${valor}<small>/${maximo}</small>` : valor;
+        return `<div class="statline"><span>${nombre}</span><b class="num">${marca}</b></div>`;
+    }).join("");
+}
+
 function bloqueFicha() {
     const estilo = estiloActual();
     const [nombreRol, detalleRol] = rol();
-    const s = state.stats || BASES[state.posicion] || BASES.PG;
-    const skills = [
-        ["CALIBRE", state.calibre || 46],
-        ["TIRO", s.tiro],
-        ["VELOCIDAD", s.velocidad],
-        ["FUERZA", s.fuerza],
-        ["CONTROL", s.control],
-        ["DEFENSA", s.defensa]
-    ];
-    const htmlSkills = skills.map(([nombre, valor]) =>
-        `<div class="statline"><span>${nombre}</span><b class="num">${valor}</b></div>`
-    ).join("");
+    const htmlSkills = htmlAtributos();
     const ganadas = state.trofeos.filter((trofeo) => trofeo.cantidad > 0);
-    const copas = (ganadas.length ? ganadas : state.trofeos.slice(0, 4)).map((trofeo) =>
-        `<div class="trofeo"><span>${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`
-    ).join("");
+    const copas = (ganadas.length ? ganadas : state.trofeos.slice(0, 4)).map(htmlTrofeo).join("");
     const tags = (estilo ? [estilo.titulo].concat(estilo.tags) : []).concat(state.habilidades)
         .map((tag) => `<i>${esc(tag)}</i>`).join("");
     const previa = lineaNumeros(state.ppgPrevio, state.rpgPrevio, state.apgPrevio) || state.notaPrevia;
@@ -1426,7 +1737,7 @@ function pantallaArmar() {
             <input class="campo" id="ciudad" maxlength="40" autocomplete="off" value="${esc(state.ciudad || "")}" placeholder="Ciudad">
             <input class="campo" id="dorsal" inputmode="numeric" maxlength="2" autocomplete="off" value="${esc(state.dorsal || 11)}" placeholder="Dorsal">
             <div class="pos-row">${botonesPos}</div>
-            <p class="nota">${state.posicion ? esc(POSICIONES[state.posicion]) : "Elegí tu puesto."} Arrancás con 19 años.</p>
+            <p class="nota">${state.posicion ? esc(POSICIONES[state.posicion]) : "Elegí tu puesto."} Arrancás con 16 años.</p>
             <h2>COMO JUEGO</h2>
             ${estilos.length ? `<div class="opciones">${botonesEstilo}</div><p class="nota">${esc(elegido ? elegido.texto + " No se puede cambiar después." : "Elegí un estilo de este puesto. No se puede cambiar después.")}</p>` : `<p class="nota">Elegí un puesto para ver tus estilos.</p>`}
             <h2>HABILIDADES ${state.habilidades.length}/2</h2>
@@ -1558,21 +1869,8 @@ function pantallaFicha() {
     const estilo = estiloActual();
     const [nombreRol] = rol();
     const box = boxScore();
-    const s = state.stats || BASES.PG;
-    const skills = [
-        ["CALIBRE", state.calibre || 46],
-        ["TIRO", s.tiro],
-        ["VELOCIDAD", s.velocidad],
-        ["FUERZA", s.fuerza],
-        ["CONTROL", s.control],
-        ["DEFENSA", s.defensa]
-    ];
-    const htmlSkills = skills.map(([nombre, valor]) =>
-        `<div class="statline"><span>${nombre}</span><b class="num">${valor}</b></div>`
-    ).join("");
-    const copas = state.trofeos.map((trofeo) =>
-        `<div class="trofeo"><span>${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`
-    ).join("");
+    const htmlSkills = htmlAtributos();
+    const copas = state.trofeos.map(htmlTrofeo).join("");
     const tags = (estilo ? [estilo.titulo].concat(estilo.tags) : []).concat(state.habilidades)
         .map((tag) => `<i>${esc(tag)}</i>`).join("");
     const frase = eq && eq.abreviatura === "GSW" ? " · DUB NATION" : "";

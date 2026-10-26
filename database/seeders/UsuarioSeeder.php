@@ -154,9 +154,9 @@ class UsuarioSeeder extends Seeder
             'retirado' => $retiro,
             'trofeos' => [
                 ['nombre' => 'CAMPEÓN NBA', 'cantidad' => 0],
-                ['nombre' => 'MVP FINALES', 'cantidad' => 0],
+                ['nombre' => 'FINALS MVP', 'cantidad' => 0],
                 ['nombre' => 'MVP TEMPORADA', 'cantidad' => 0],
-                ['nombre' => 'ALL-STAR', 'cantidad' => 0],
+                ['nombre' => 'ALL STAR', 'cantidad' => 0],
                 ['nombre' => 'MEJOR DEFENSOR', 'cantidad' => 0],
                 ['nombre' => 'ANILLO DE CAMPEÓN', 'cantidad' => 0],
             ],

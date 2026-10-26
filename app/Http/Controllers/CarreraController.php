@@ -11,6 +11,39 @@ use Illuminate\Support\Facades\Auth;
 
 class CarreraController extends Controller
 {
+    private const TECHOS = [
+        'PG' => ['velocidad' => 99, 'tiro' => 99, 'fuerza' => 85, 'control' => 95, 'defensa' => 80],
+        'SG' => ['velocidad' => 96, 'tiro' => 99, 'fuerza' => 82, 'control' => 90, 'defensa' => 91],
+        'SF' => ['velocidad' => 94, 'tiro' => 99, 'fuerza' => 90, 'control' => 85, 'defensa' => 90],
+        'PF' => ['velocidad' => 86, 'tiro' => 90, 'fuerza' => 99, 'control' => 84, 'defensa' => 99],
+        'C' => ['velocidad' => 84, 'tiro' => 90, 'fuerza' => 99, 'control' => 86, 'defensa' => 99],
+    ];
+
+    /**
+     * @param  array<string, int>  $stats
+     */
+    private function mediaGeneral(array $stats, string $posicion): int
+    {
+        $techos = self::TECHOS[$posicion];
+        $lleno = 0.0;
+        $completas = 0;
+        foreach (['velocidad', 'tiro', 'fuerza', 'control', 'defensa'] as $clave) {
+            $techo = $techos[$clave];
+            $valor = (int) ($stats[$clave] ?? 0);
+            if ($techo > 0 && $valor >= $techo) {
+                $completas++;
+                $lleno += 1;
+            } elseif ($techo > 0) {
+                $lleno += max(0, $valor) / $techo;
+            }
+        }
+        if ($completas === 5) {
+            return 99;
+        }
+
+        return min(98, (int) round($lleno / 5 * 99));
+    }
+
     public function sesion(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -101,10 +134,17 @@ class CarreraController extends Controller
         }
 
         $stats = is_array($datos['stats'] ?? null) ? $datos['stats'] : [];
+        $techos = self::TECHOS[$posicion];
+        $recortado = false;
         foreach (['velocidad', 'tiro', 'fuerza', 'control', 'defensa'] as $clave) {
             $valor = (int) ($stats[$clave] ?? 50);
             if ($valor < 1 || $valor > 99) {
                 return response()->json(['ok' => false, 'error' => 'Esas habilidades no cierran.'], 422);
+            }
+            $techo = $techos[$clave];
+            if ($valor > $techo) {
+                $valor = $techo;
+                $recortado = true;
             }
             $stats[$clave] = $valor;
         }
@@ -112,6 +152,12 @@ class CarreraController extends Controller
         $calibre = (int) ($datos['calibre'] ?? 46);
         if ($calibre < 1 || $calibre > 99) {
             return response()->json(['ok' => false, 'error' => 'Ese calibre no existe.'], 422);
+        }
+        if ($recortado) {
+            $media = $this->mediaGeneral($stats, $posicion);
+            if ($calibre > $media) {
+                $calibre = $media;
+            }
         }
         $datos['calibre'] = $calibre;
 
