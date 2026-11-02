@@ -5,21 +5,16 @@ namespace App\Http\Controllers;
 use App\Support\Estrellas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ManagerController extends Controller
 {
-    public function activar(Request $request): JsonResponse
+    public function activar(): JsonResponse
     {
-        $user = $request->user();
-        $tieneRetiro = $user->jugadores()->where('retiro', true)->exists();
-        if (! $tieneRetiro) {
-            return response()->json(['ok' => false, 'error' => 'Primero tenés que terminar una carrera.'], 422);
-        }
-
-        $user->es_manager = true;
-        $user->save();
-
-        return response()->json(['ok' => true]);
+        return response()->json([
+            'ok' => false,
+            'error' => 'El retiro cierra la carrera. El modo manager no sigue.',
+        ], 422);
     }
 
     public function nuevo(Request $request): JsonResponse
@@ -33,7 +28,9 @@ class ManagerController extends Controller
 
     public function mercado(): JsonResponse
     {
-        return response()->json(Estrellas::todas());
+        $lista = Cache::remember('rookie.estrellas.v1', 3600, fn () => Estrellas::todas());
+
+        return response()->json($lista)->header('Cache-Control', 'public, max-age=300');
     }
 
     public function fichar(Request $request): JsonResponse

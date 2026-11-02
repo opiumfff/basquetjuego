@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Puntaje;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class PuntajeController extends Controller
 {
@@ -15,17 +16,9 @@ class PuntajeController extends Controller
             return response()->json(['error' => 'Juego desconocido'], 400);
         }
 
-        $filas = Puntaje::query()
-            ->where('juego', $juego)
-            ->orderByDesc('puntaje')
-            ->orderBy('id')
-            ->limit(10)
-            ->get();
+        $lista = Cache::remember($this->claveRanking($juego), 20, fn () => $this->ranking($juego));
 
-        return response()->json($filas->map(fn (Puntaje $fila) => [
-            'name' => $fila->nombre,
-            'score' => (int) $fila->puntaje,
-        ])->values());
+        return response()->json($lista)->header('Cache-Control', 'public, max-age=15');
     }
 
     public function guardar(Request $request): JsonResponse
@@ -53,9 +46,34 @@ class PuntajeController extends Controller
             $fila->nombre = mb_substr($usuario->name, 0, 18);
             $fila->puntaje = $puntaje;
             $fila->save();
+            Cache::forget($this->claveRanking($juego));
         }
 
         return $this->ver($request);
+    }
+
+    /**
+     * @return list<array{name: string, score: int}>
+     */
+    private function ranking(string $juego): array
+    {
+        return Puntaje::query()
+            ->where('juego', $juego)
+            ->orderByDesc('puntaje')
+            ->orderBy('id')
+            ->limit(10)
+            ->get()
+            ->map(fn (Puntaje $fila) => [
+                'name' => $fila->nombre,
+                'score' => (int) $fila->puntaje,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function claveRanking(string $juego): string
+    {
+        return 'rookie.puntajes.'.$juego;
     }
 
     private function juego(Request $request): ?string

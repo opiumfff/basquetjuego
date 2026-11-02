@@ -1,0 +1,10 @@
+{
+    "name": "The Rookie",
+    "short_name": "The Rookie",
+    "description": "Juego de básquet en el navegador. Creá tu jugador y llegá a la NBA.",
+    "start_url": "/",
+    "display": "standalone",
+    "lang": "es",
+    "background_color": "#02040c",
+    "theme_color": "#02040c"
+}

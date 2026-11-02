@@ -404,7 +404,10 @@ function convocarAllStar(despues) {
 }
 
 function selloAllStar(sigla) {
-    return `<div class="logo-circulo"><b class="monograma">${esc(sigla)}</b></div>`;
+    const oeste = String(sigla || "").toUpperCase().indexOf("OES") !== -1;
+    const tono = oeste ? "oeste" : "este";
+    const nombre = oeste ? "All Star del Oeste" : "All Star del Este";
+    return `<div class="logo-circulo allstar ${tono}"><svg class="estrella-allstar" viewBox="0 0 24 24" role="img" aria-label="${nombre}"><path d="M12 1.6 14.9 8.2 22 8.8 16.6 13.6 18.3 20.6 12 16.9 5.7 20.6 7.4 13.6 2 8.8 9.1 8.2Z"/></svg></div>`;
 }
 
 const PARTIDOS_LNB = 5;
@@ -1913,7 +1916,7 @@ function pantallaLeyenda() {
     const cierre = (Number(state.edad) || 19) >= 40 ? " Llegaste a los 40." : "";
     return marcoCarrera("RETIRO", `
         <h1>${esc(titulo)}</h1>
-        <p class="lead">${esc(texto)} ${eq ? "Último club: " + esc(eq.nombre) + "." : ""}${cierre} Colgar los botines abre el camino de manager.</p>
+        <p class="lead">${esc(texto)} ${eq ? "Último club: " + esc(eq.nombre) + "." : ""}${cierre}</p>
         <div class="caja">${filas}</div>
         ${vitrina}
     `, `<button class="btn" data-accion="retirar">Colgar los botines</button>`);

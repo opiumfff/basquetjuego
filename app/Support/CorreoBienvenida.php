@@ -25,19 +25,19 @@ class CorreoBienvenida
             $bloques[] = '<p style="margin:0 0 12px;"><em>"'.e($frase).'"</em><br>'.e($autor).'</p>';
         }
 
-        $asunto = 'THE ROOKIE: tu cuenta está lista';
+        $asunto = 'The Rookie: tu cuenta está lista';
         $texto = "Hola {$nombre}.\n\n"
-            ."Gracias por crear tu cuenta en THE ROOKIE. La cancha ya está abierta.\n\n"
+            ."Gracias por crear tu cuenta en The Rookie. La cancha ya está abierta.\n\n"
             ."Entrá con tu email y con la contraseña que elegiste. No la compartas.\n\n"
             .implode("\n", $lineas)."\n\n"
-            ."Nos vemos en la vereda.\nTHE ROOKIE";
+            ."Nos vemos en la vereda.\nThe Rookie";
 
         $html = '<div style="font-family:Arial,sans-serif;color:#111;line-height:1.45;">'
             .'<p>Hola '.e($nombre).'.</p>'
-            .'<p>Gracias por crear tu cuenta en <strong>THE ROOKIE</strong>. La cancha ya está abierta.</p>'
+            .'<p>Gracias por crear tu cuenta en <strong>The Rookie</strong>. La cancha ya está abierta.</p>'
             .'<p>Entrá con tu email y con la contraseña que elegiste. No la compartas.</p>'
             .implode('', $bloques)
-            .'<p>Nos vemos en la vereda.<br>THE ROOKIE</p>'
+            .'<p>Nos vemos en la vereda.<br>The Rookie</p>'
             .'</div>';
 
         return ['asunto' => $asunto, 'html' => $html, 'texto' => $texto];
@@ -51,16 +51,16 @@ class CorreoBienvenida
 
     public function enviarCodigo(string $nombre, string $email, string $codigo): void
     {
-        $asunto = 'THE ROOKIE: código para una contraseña nueva';
+        $asunto = 'The Rookie: código para una contraseña nueva';
         $texto = "Hola {$nombre}.\n\n"
             ."Pediste una contraseña nueva. El código es {$codigo}.\n"
             ."Vence en 30 minutos. Si no lo pediste, ignorá este mensaje.\n\n"
-            .'THE ROOKIE';
+            .'The Rookie';
         $html = '<div style="font-family:Arial,sans-serif;color:#111;line-height:1.45;">'
             .'<p>Hola '.e($nombre).'.</p>'
             .'<p>Pediste una contraseña nueva. El código es <strong>'.e($codigo).'</strong>.</p>'
             .'<p>Vence en 30 minutos. Si no lo pediste, ignorá este mensaje.</p>'
-            .'<p>THE ROOKIE</p>'
+            .'<p>The Rookie</p>'
             .'</div>';
 
         $this->despachar($email, $nombre, $asunto, $html, $texto);
@@ -100,12 +100,12 @@ class CorreoBienvenida
         }
 
         $desde = (string) config('mail.from.address');
-        $nombreDesde = (string) config('mail.from.name', 'THE ROOKIE');
+        $nombreDesde = (string) config('mail.from.name', 'The Rookie');
         if (! $this->valorReal($desde)) {
             $desde = 'rookie@localhost';
         }
 
-        $mail->setFrom($desde, $nombreDesde !== '' ? $nombreDesde : 'THE ROOKIE');
+        $mail->setFrom($desde, $nombreDesde !== '' ? $nombreDesde : 'The Rookie');
         $mail->addAddress($email, $nombre);
         $mail->Subject = $asunto;
         $mail->isHTML(true);

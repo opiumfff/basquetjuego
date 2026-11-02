@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [JuegoController::class, 'index']);
 Route::get('/jugar.php', [JuegoController::class, 'index']);
+Route::get('/sitemap.xml', [JuegoController::class, 'sitemap']);
+Route::get('/robots.txt', [JuegoController::class, 'robots']);
 
 Route::get('/api/equipos.php', [EquipoController::class, 'index']);
 Route::get('/api/estrellas', [ManagerController::class, 'mercado']);

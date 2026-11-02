@@ -15,8 +15,12 @@ class ExampleTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk();
-        $response->assertSee('THE ROOKIE', false);
+        $response->assertSee('The Rookie', false);
+        $response->assertSee('juego de básquet en el navegador', false);
+        $response->assertSee('csrf-token', false);
 
-        $this->get('/jugar.php')->assertOk()->assertSee('csrf-token', false);
+        $this->get('/jugar.php')->assertOk()->assertSee('The Rookie', false);
+        $this->get('/sitemap.xml')->assertOk()->assertSee(url('/'), false);
+        $this->get('/robots.txt')->assertOk()->assertSee('Sitemap: '.url('/sitemap.xml'), false);
     }
 }

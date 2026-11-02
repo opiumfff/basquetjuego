@@ -798,6 +798,19 @@ button, input, select, textarea { touch-action: manipulation; }
     background: transparent;
 }
 
+#app .trofeo .trofeo-foto.dpoy {
+    width: 28px;
+    height: 36px;
+}
+
+#app .trofeo .estrella-vitrina {
+    width: 16px;
+    height: 16px;
+    margin: 0 6px 0 0;
+    vertical-align: middle;
+    display: inline-block;
+}
+
 #app .tabla-conf .statline span {
     min-width: 0;
     overflow: hidden;
@@ -862,6 +875,20 @@ button, input, select, textarea { touch-action: manipulation; }
 }
 
 #app .monograma.calle { font-size: 8px; }
+
+#app .logo-circulo.allstar {
+    background: #10141c;
+}
+
+#app .estrella-allstar {
+    width: 74%;
+    height: 74%;
+    display: block;
+}
+
+#app .logo-circulo.allstar.oeste .estrella-allstar { fill: #7ad7f5; }
+
+#app .logo-circulo.allstar.este .estrella-allstar { fill: #e10600; }
 
 #app .body {
     overflow-x: hidden;

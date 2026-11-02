@@ -3,11 +3,22 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class EquipoController extends Controller
 {
     public function index(): JsonResponse
+    {
+        $equipos = Cache::remember('rookie.equipos.v2', 600, fn () => $this->catalogo());
+
+        return response()->json($equipos)->header('Cache-Control', 'public, max-age=300');
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function catalogo(): array
     {
         $filas = DB::table('equipos')
             ->select('id', 'nombre', 'abreviatura', 'ciudad', 'conferencia', 'division', 'color_primario', 'color_secundario', 'liga', 'minima')
@@ -29,6 +40,7 @@ class EquipoController extends Controller
             $propio = 'assets/fondos/'.strtolower((string) $fila->liga).'-'.$codigo.'.png';
             $generico = $fondos[$fila->liga] ?? 'assets/fondo-calle.jpg';
             $fondo = is_file(public_path($propio)) ? $propio : (is_file(public_path($generico)) ? $generico : 'assets/fondo-calle.jpg');
+            $archivoLogo = public_path($logo);
 
             return [
                 'id' => $fila->id,
@@ -41,11 +53,11 @@ class EquipoController extends Controller
                 'color_secundario' => $fila->color_secundario,
                 'liga' => $fila->liga,
                 'minima' => (int) $fila->minima,
-                'logo' => is_file(public_path($logo)) ? $logo : null,
+                'logo' => is_file($archivoLogo) ? $logo.'?v='.filemtime($archivoLogo) : null,
                 'fondo' => $fondo,
             ];
-        })->values();
+        })->values()->all();
 
-        return response()->json($equipos);
+        return $equipos;
     }
 }

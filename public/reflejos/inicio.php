@@ -39,13 +39,13 @@ if ($pdo instanceof PDO) {
 
         <p class="inicio-texto">
             Poné a prueba tus reflejos en la cancha. Hacé clic en la pelota lo más
-            rápido posible, sumá aciertos y cuidá tus vidas antes de que se acabe
-            el tiempo.
+            rápido posible. Para ganar hacen falta 35 aciertos, y seguís teniendo
+            3 vidas.
         </p>
 
         <ul class="inicio-lista">
             <li>⏱️ 30 segundos por partida</li>
-            <li>🎯 Sumá aciertos y bajá tu tiempo de reacción</li>
+            <li>🎯 35 aciertos para ganar</li>
             <li>❤️ 3 vidas, no falles el rebote</li>
         </ul>
 

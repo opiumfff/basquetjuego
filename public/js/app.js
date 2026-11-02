@@ -69,8 +69,8 @@ const FRASES = {
         ["Un buen manager pone el ego en el banco.", "Phil Jackson", "cuenta", "Tu plantel"]
     ],
     retiro: [
-        ["El final de una carrera puede ser el principio de otra.", "Phil Jackson", "ser-manager", "Seguir de manager"],
-        ["No es el fin del camino. Es un cambio de banco.", "Gregg Popovich", "ser-manager", "Seguir de manager"]
+        ["El final de una carrera puede ser el principio de otra.", "Phil Jackson", "cuenta", "Ver la cuenta"],
+        ["Se cuelga la camiseta. La historia queda en la vitrina.", "Gregg Popovich", "cuenta", "Ver la cuenta"]
     ]
 };
 
@@ -179,14 +179,42 @@ function esc(valor) {
     }[c]));
 }
 
+function colorDeEquipo(eq) {
+    const primario = String((eq && eq.color_primario) || "");
+    const secundario = String((eq && eq.color_secundario) || "");
+    const hex = (valor) => /^#[0-9a-fA-F]{6}$/.test(valor);
+    const seVe = (valor) => hex(valor) && luma(valor) > 40 && luma(valor) < 220;
+    if (seVe(primario)) return primario;
+    if (seVe(secundario)) return secundario;
+    if (hex(primario)) return primario;
+    return "#d0d0d0";
+}
+
+function colorEquipoJugador() {
+    const eq = equipoActual();
+    if (eq && (eq.color_primario || eq.color_secundario)) return colorDeEquipo(eq);
+    const guardado = (state.trofeos || []).find((item) => item.nombre === "ALL STAR");
+    if (guardado && /^#[0-9a-fA-F]{6}$/.test(guardado.color || "")) return guardado.color;
+    return "#d0d0d0";
+}
+
+function estrellaAllStar() {
+    const eq = equipoActual();
+    const color = colorEquipoJugador();
+    const nombre = eq && eq.nombre ? eq.nombre : "tu equipo";
+    return `<svg class="estrella-vitrina" viewBox="0 0 24 24" role="img" aria-label="${esc(nombre)}" style="fill:${esc(color)}"><path d="M12 1.6 14.9 8.2 22 8.8 16.6 13.6 18.3 20.6 12 16.9 5.7 20.6 7.4 13.6 2 8.8 9.1 8.2Z"/></svg>`;
+}
+
 function htmlTrofeo(trofeo) {
     const fotos = {
         "FINALS MVP": "/assets/mvp-finales.png?v=3",
-        "CAMPEÓN NBA": "/assets/campeon-nba.png?v=2"
+        "CAMPEÓN NBA": "/assets/campeon-nba.png?v=2",
+        "DPOY": "/assets/dpoy.png?v=3"
     };
     const src = fotos[trofeo.nombre];
-    const foto = src ? `<img class="trofeo-foto" src="${src}" alt="">` : "";
-    return `<div class="trofeo"><span>${foto}${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`;
+    const foto = src ? `<img class="trofeo-foto${trofeo.nombre === "DPOY" ? " dpoy" : ""}" src="${src}" alt="">` : "";
+    const estrella = trofeo.nombre === "ALL STAR" && trofeo.cantidad > 0 ? estrellaAllStar() : "";
+    return `<div class="trofeo"><span>${estrella}${foto}${esc(trofeo.nombre)}</span><b class="num">x${trofeo.cantidad}</b></div>`;
 }
 
 function clamp(n, min, max) {
@@ -1506,6 +1534,7 @@ function sumarTrofeo(nombre) {
         state.trofeos.push(trofeo);
     }
     trofeo.cantidad += 1;
+    if (nombre === "ALL STAR") trofeo.color = colorEquipoJugador();
 }
 
 function puntajeCarrera() {
@@ -1539,7 +1568,7 @@ function clubesTexto() {
 }
 
 function cabeza(derecha) {
-    return `<div class="top"><b class="brand">THE ROOKIE</b><div class="paso">${derecha}</div></div>`;
+    return `<div class="top"><b class="brand">The Rookie</b><div class="paso">${derecha}</div></div>`;
 }
 
 function fraseBtn(clave, hueco) {
@@ -1901,7 +1930,7 @@ function pantallaRetiro() {
     const marca = state.traidor ? "Traidor" : (state.mercenario ? "Mercenario" : "Ídolo");
     const aviso = state.confirmarCierre
         ? `<p class="flash">Cerrar la cuenta borra tu perfil y todas las carreras.</p>`
-        : `<p class="lead">La carrera de jugador terminó. ¿Cerrás la cuenta o seguís de manager?</p>`;
+        : `<p class="lead">La carrera de jugador terminó.</p>`;
     return `<section class="screen">
         ${cabeza("FIN")}
         <div class="body">
@@ -1933,7 +1962,6 @@ function pantallaRetiro() {
 function botonesRetiro() {
     const cuenta = state.cuenta || { google: false, user: null, jugadores: [] };
     const user = cuenta.user;
-    const seguir = `<button class="btn" data-accion="ser-manager">Seguir de manager</button>`;
     if (user && state.confirmarCierre) {
         return `<p class="nota">Escribí ${esc(identidadCuenta(user))} para borrar la cuenta y todas las carreras.</p>
             <input class="campo" id="cierre-email" type="text" maxlength="190" autocomplete="off" placeholder="${user.usuario ? "Usuario de la cuenta" : "Email de la cuenta"}">
@@ -1941,14 +1969,11 @@ function botonesRetiro() {
             <button class="btn ghost" data-accion="cuenta">No, volver</button>`;
     }
     if (user) {
-        const plantel = user.manager ? `<button class="btn ghost" data-accion="cuenta">Administrar plantel</button>` : "";
-        return `${seguir}
-            ${plantel}
+        return `<button class="btn ghost" data-accion="cuenta">Ver la cuenta</button>
             <button class="btn ghost" data-accion="preguntar-cierre">Cerrar cuenta</button>`;
     }
     const google = cuenta.google ? botonGoogle() : "";
-    return `${seguir}
-        ${google}
+    return `${google}
         <button class="btn ghost" data-accion="cerrar-local">Cerrar esta partida</button>`;
 }
 
@@ -1963,7 +1988,7 @@ function pantallaCuenta() {
     if (user && user.manager) {
         lead = "Manager nivel " + (user.nivel || nivelManager()) + ". El calibre de tu jugador te sube. NCAA en 2, LNB en 4, NBA en 6.";
     } else if (user) {
-        lead = "Podés tener más de una carrera. Cuando te retires, esta cuenta puede seguir como manager.";
+        lead = "Podés tener más de una carrera.";
     }
     const filas = (cuenta.jugadores || []).map((jugador) => {
         const marca = jugador.retiro ? "RETIRO" : "ACTIVO";
@@ -1990,7 +2015,7 @@ function pantallaCuenta() {
             <h1>TU<br><span>CUENTA</span></h1>
             <div class="perfil">${avatar}<div><strong class="gold">${esc(user ? user.nombre : "Invitado")}</strong><p class="nota">${esc(user ? (identidadCuenta(user) || "Cuenta lista") : "Este teléfono")}</p></div></div>
             <div class="caja">
-                <h2>THE ROOKIE</h2>
+                <h2>The Rookie</h2>
                 <div class="statline"><span>Veces que jugaste</span><b class="num">${historia.partidas || 0}</b></div>
                 <div class="statline"><span>Carreras</span><b class="num">${historia.carreras || 0}</b></div>
                 <div class="statline"><span>Partidos</span><b class="num">${historia.partidos || 0}</b></div>
@@ -2277,38 +2302,19 @@ function ligar() {
                 state.retirado = true;
                 state.fase = "retiro";
                 state.flash = "Colgaste los botines.";
+                if (state.cuenta && state.cuenta.user) state.cuenta.user.manager = false;
                 await persistir();
+                await refrescarCuenta();
                 render();
             }
             if (accion === "ser-manager") {
-                if (!state.cuenta || !state.cuenta.user) {
-                    state.flash = "Para seguir de manager tenés que entrar con tu cuenta.";
-                    render();
-                    return;
-                }
-                const res = await apiFetch("/api/manager", { method: "POST", body: "{}" });
-                if (res.datos && res.datos.ok) {
-                    state.cuenta.user.manager = true;
-                    await refrescarCuenta();
-                    const hayVivo = (state.cuenta.jugadores || []).some((jugador) => !jugador.retiro);
-                    if (!hayVivo) {
-                        const listo = await prepararNuevo();
-                        if (!listo) return;
-                        state.flash = "Sos manager nivel " + nivelManager() + ". Armá a tu novato y subile el calibre.";
-                        render();
-                        return;
-                    }
-                    state.fase = "cuenta";
-                    state.flash = "Seguís de manager. Elegí a quién entrenar.";
-                } else {
-                    state.flash = (res.datos && res.datos.error) || "Primero tenés que terminar una carrera.";
-                }
-                guardarLocal();
+                state.flash = "El retiro cierra la carrera. No sigue el modo manager.";
+                state.fase = "retiro";
                 render();
             }
             if (accion === "manager" || accion === "mercado") {
                 if (!state.cuenta || !state.cuenta.user || !state.cuenta.user.manager) {
-                    state.flash = "El mercado abre cuando seguís de manager.";
+                    state.flash = "El modo manager no sigue después del retiro.";
                     state.fase = "cuenta";
                     render();
                     return;
@@ -2668,6 +2674,15 @@ function aplicarFicha(ficha) {
     guardarLocal();
 }
 
+async function apagarManagerSiRetirado() {
+    const user = state.cuenta && state.cuenta.user;
+    if (!state.retirado || !user || !user.manager) return;
+    user.manager = false;
+    if (state.fase === "mercado" || state.fase === "manager") state.fase = "retiro";
+    await persistir();
+    await refrescarCuenta();
+}
+
 async function refrescarCuenta() {
     try {
         const res = await apiFetch("/api/sesion");
@@ -2794,6 +2809,7 @@ async function arrancar() {
         state.fase = "";
         state.paso = "inicio";
     }
+    await apagarManagerSiRetirado();
     asegurarCalendario();
     cobrarRecompensa();
     render();

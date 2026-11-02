@@ -43,7 +43,7 @@ class CuentaTest extends TestCase
             ->assertJsonPath('google', false);
     }
 
-    public function test_una_carrera_ajena_no_se_pisa_y_el_manager_nace_despues_del_retiro(): void
+    public function test_una_carrera_ajena_no_se_pisa_y_el_retiro_no_abre_el_manager(): void
     {
         $dueno = User::factory()->create();
         $otro = User::factory()->create();
@@ -71,8 +71,8 @@ class CuentaTest extends TestCase
 
         $this->assertTrue(Jugador::query()->find($id)->retiro);
 
-        $this->actingAs($dueno)->postJson('/api/manager')->assertOk();
-        $this->assertTrue($dueno->fresh()->es_manager);
+        $this->actingAs($dueno)->postJson('/api/manager')->assertStatus(422);
+        $this->assertFalse($dueno->fresh()->es_manager);
 
         $segundo = $this->actingAs($dueno)->postJson('/api/guardar.php', $this->ficha('Segundo'));
         $segundo->assertOk();
@@ -92,22 +92,21 @@ class CuentaTest extends TestCase
     public function test_el_manager_tiene_varias_carreras_y_el_mercado_respeta_el_nivel(): void
     {
         $user = User::factory()->create();
+        $user->es_manager = true;
+        $user->save();
+
         $primero = $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Novato', [
-            'retirado' => true,
-            'fase' => 'retiro',
             'calibre' => 46,
             'partidos' => 2,
             'partidas' => 5,
         ]));
         $primero->assertOk();
+        $this->assertTrue($user->fresh()->es_manager);
 
-        $this->actingAs($user)->postJson('/api/manager')->assertOk();
         $this->actingAs($user)->postJson('/api/manager/fichar', ['id' => 'ncaa-1'])->assertStatus(422);
 
         $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Novato', [
             'id' => $primero->json('id'),
-            'retirado' => true,
-            'fase' => 'retiro',
             'calibre' => 54,
             'partidos' => 2,
             'partidas' => 5,
@@ -130,6 +129,17 @@ class CuentaTest extends TestCase
         $sesion->assertJsonPath('user.manager', true);
         $sesion->assertJsonPath('historial.carreras', 3);
         $this->assertGreaterThanOrEqual(5, $sesion->json('historial.partidas'));
+
+        $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Novato', [
+            'id' => $primero->json('id'),
+            'retirado' => true,
+            'fase' => 'retiro',
+            'calibre' => 54,
+            'partidos' => 2,
+            'partidas' => 5,
+        ]))->assertOk();
+        $this->assertFalse($user->fresh()->es_manager);
+        $this->actingAs($user)->postJson('/api/manager')->assertStatus(422);
 
         $this->getJson('/api/estrellas')
             ->assertOk()
@@ -220,6 +230,41 @@ class CuentaTest extends TestCase
         $this->actingAs($user)
             ->postJson('/api/manager')
             ->assertStatus(422);
+    }
+
+    public function test_el_retiro_apaga_el_modo_manager(): void
+    {
+        $user = User::factory()->create();
+        $user->es_manager = true;
+        $user->save();
+
+        $alta = $this->actingAs($user)->postJson('/api/guardar.php', $this->ficha('Activo'));
+        $alta->assertOk();
+
+        $this->actingAs($user)
+            ->postJson('/api/guardar.php', $this->ficha('Activo', [
+                'id' => $alta->json('id'),
+                'revision' => 1,
+                'retirado' => true,
+                'fase' => 'retiro',
+            ]))
+            ->assertOk();
+
+        $this->assertFalse($user->fresh()->es_manager);
+
+        $user->es_manager = true;
+        $user->save();
+        $this->actingAs($user)
+            ->postJson('/api/guardar.php', $this->ficha('Activo', [
+                'id' => $alta->json('id'),
+                'revision' => 2,
+                'retirado' => true,
+                'fase' => 'retiro',
+            ]))
+            ->assertOk();
+        $this->assertFalse($user->fresh()->es_manager);
+        $this->actingAs($user)->postJson('/api/manager')->assertStatus(422);
+        $this->assertFalse($user->fresh()->es_manager);
     }
 
     /**

@@ -62,7 +62,7 @@ if ($equipoId && $pdo instanceof PDO) {
 
         <section class="panel">
             <div>Tiempo: <span id="tiempo">30</span>s</div>
-            <div>Aciertos: <span id="aciertos">0</span></div>
+            <div>Aciertos: <span id="aciertos">0</span> / 35</div>
             <div>Promedio: <span id="promedio">-</span></div>
             <div>Vidas: <span id="vidas">3</span></div>
         </section>
@@ -72,7 +72,7 @@ if ($equipoId && $pdo instanceof PDO) {
             <button id="objetivo" aria-label="Objetivo">🏀</button>
         </div>
 
-        <p id="mensaje">Presioná comenzar y hacé clic en la pelota lo más rápido posible.</p>
+        <p id="mensaje">Presioná comenzar. Ganás con 35 aciertos y tenés 3 vidas.</p>
         <button id="comenzar">Comenzar</button>
         <div id="resultado"></div>
     </main>
@@ -86,6 +86,6 @@ if ($equipoId && $pdo instanceof PDO) {
         </div>
     </div>
 
-    <script src="js/juego.js?v=5"></script>
+    <script src="js/juego.js?v=6"></script>
 </body>
 </html>

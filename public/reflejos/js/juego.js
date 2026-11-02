@@ -13,6 +13,8 @@ const modalDerrota = document.getElementById("modalDerrota");
 const modalStats = document.getElementById("modalStats");
 const cerrarModal = document.getElementById("cerrarModal");
 
+const META_ACIERTOS = 35;
+
 let jugando = false;
 let tiempo = 30;
 let aciertos = 0;
@@ -53,7 +55,7 @@ function comenzarJuego() {
     promedioTexto.textContent = "-";
     vidasTexto.textContent = vidas;
     resultado.textContent = "";
-    mensaje.textContent = "¡Rápido! Hacé clic en la pelota.";
+    mensaje.textContent = "¡Rápido! Hacé clic en la pelota. La meta es " + META_ACIERTOS + " aciertos.";
 
     comenzar.disabled = true;
     comenzar.textContent = "Jugando...";
@@ -65,7 +67,7 @@ function comenzarJuego() {
         tiempoTexto.textContent = tiempo;
 
         if (tiempo <= 0) {
-            terminarJuego(false);
+            terminarJuego(aciertos < META_ACIERTOS);
         }
     }, 1000);
 }
@@ -85,6 +87,11 @@ function acertar(e) {
 
     promedioTexto.textContent = Math.round(promedio) + " ms";
 
+    if (aciertos >= META_ACIERTOS) {
+        terminarJuego(false);
+        return;
+    }
+
     moverObjetivo();
 }
 
@@ -101,7 +108,10 @@ function fallar() {
 }
 
 function terminarJuego(perdiste) {
-    if (window.rookieSumar) rookieSumar("reflejos", !perdiste, { aciertos: aciertos });
+    if (!jugando) return;
+
+    const gano = !perdiste && aciertos >= META_ACIERTOS;
+    if (window.rookieSumar) rookieSumar("reflejos", gano, { aciertos: aciertos });
     if (window.rookieMarcar) rookieMarcar(false);
     jugando = false;
     clearInterval(intervalo);
@@ -110,10 +120,12 @@ function terminarJuego(perdiste) {
     comenzar.disabled = false;
     comenzar.textContent = "Jugar de nuevo";
 
-    if (perdiste) {
+    if (vidas <= 0) {
         mensaje.textContent = "💀 ¡Perdiste! Te quedaste sin vidas.";
+    } else if (gano) {
+        mensaje.textContent = "¡Ganaste! Llegaste a " + META_ACIERTOS + " aciertos.";
     } else {
-        mensaje.textContent = "¡Partida terminada!";
+        mensaje.textContent = "¡Se acabó el tiempo! Hacían falta " + META_ACIERTOS + " aciertos.";
     }
 
     if (tiemposReaccion.length > 0) {

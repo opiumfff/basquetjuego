@@ -214,6 +214,11 @@ class CarreraController extends Controller
         $jugador->ficha = json_encode($datos, JSON_UNESCAPED_UNICODE);
         $jugador->save();
 
+        if ($user && $retiro && $user->es_manager) {
+            $user->es_manager = false;
+            $user->save();
+        }
+
         return response()->json(['ok' => true, 'id' => $jugador->id, 'revision' => $datos['revision']]);
     }
 
